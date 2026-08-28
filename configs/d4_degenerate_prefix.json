@@ -1,0 +1,49 @@
+{
+  "id": "D4",
+  "question": "Can a repetition bypass recover failures that are invisible to both s1 and s2?",
+  "split": "double_low_s1_s2_repetition_challenge_bank",
+  "sample": {
+    "minimum_states": 500,
+    "minimum_prompts": 200,
+    "group_disjoint_from_d1_d2_and_final_benchmarks": true,
+    "two_blinded_loop_annotators": true,
+    "cohen_kappa_at_least": 0.70
+  },
+  "arms": [
+    "core_router",
+    "router_plus_repetition_bypass",
+    "random_budget_matched_intervention",
+    "discard_all_double_low"
+  ],
+  "bypass_signals": [
+    "sliding_fourgram_repetition_rate",
+    "unique_token_ratio",
+    "length_inflation"
+  ],
+  "challenge_selection": {
+    "double_low": "s1_at_or_below_global_frozen_q25_and_s2_at_or_below_global_frozen_q25",
+    "repetition_trigger": "any_frozen_D4_threshold_on_sliding_fourgram_repetition_unique_token_ratio_or_length_inflation",
+    "thresholds_are_frozen_on": "training_derived_D4_pilot_before_challenge_outcomes"
+  },
+  "teacher_alternative_direction": {
+    "probe_tokens": 64,
+    "generation": "greedy_from_original_prefix",
+    "definition": "teacher_probe_does_not_continue_the_detected_repeating_ngram_and_its_fourgram_repetition_rate_is_below_the_frozen_D4_escape_threshold",
+    "outcome_blind": "flag_is_computed_before_assigned_action_and_without_verifier_or_human_outcome"
+  },
+  "route": "intervene_only_when_frozen_teacher_alternative_direction_flag_is_true_else_discard",
+  "primary_endpoints": [
+    "verified_failure_recall",
+    "loop_escape_rate",
+    "false_trigger_rate",
+    "extra_teacher_cost",
+    "task_accuracy"
+  ],
+  "status": "boundary_extension_not_core_confirmatory_claim",
+  "audit_invariants": [
+    "bypass_disabled_in_core_d0_d2_d3",
+    "teacher_alternative_direction_is_logged",
+    "random_arm_matches_actual_teacher_generated_tokens_and_probe_cost_within_one_percent",
+    "challenge_membership_is_frozen_before_action_outcomes"
+  ]
+}

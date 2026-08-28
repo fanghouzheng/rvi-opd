@@ -1,0 +1,73 @@
+{
+  "id": "D1",
+  "question": "Are disagreement eligibility (s1) and prefix damage (s2) distinct, stable signals that predict different action benefits?",
+  "split": "calibration_only_grouped_by_near_duplicate_cluster",
+  "arms": [
+    "fixed_context_repair_probe",
+    "paired_bridge_probe",
+    "random_bridge_null"
+  ],
+  "signals": {
+    "k_signal": 16,
+    "batch_robust_normalization_quantiles": [0.05, 0.95],
+    "batch_normalized_dl_di_role": "TA_OPD_compatible_state_descriptor_and_diagnostic_only_not_a_cross_batch_router_threshold",
+    "router_transform": "apply_one_global_D1_frozen_raw_D_and_C_q05_q95_transform_to_every_future_state_independent_of_inference_batch_composition",
+    "prefix_position_strata": {
+      "quantity": "token_index_divided_by_max_response_tokens",
+      "cut_points": [0.0, 0.25, 0.5, 0.75, 1.0],
+      "available_at_decision_time": true,
+      "role": "stability_diagnostic_and_analysis_covariate_only_not_router_specific_thresholds"
+    },
+    "state_bands": {"low": 0.25, "high": 0.75},
+    "router_threshold_scope": "global",
+    "stability_diagnostics_by": ["known_prefix_position_stratum"],
+    "forbidden_stratifier": "realized_or_future_response_length",
+    "router_s1_definition": "max(frozen_scale_DL,frozen_scale_DI)",
+    "epistemic_mass_temperature": 1.0
+  },
+  "primary_endpoints": [
+    "partial_effect_s2_on_bridge_benefit",
+    "partial_effect_dl_on_fixed_context_kl_gain",
+    "critical_stratum_prevalence"
+  ],
+  "success_gate": {
+    "absolute_spearman_max_dl_di_s2_below": 0.70,
+    "report_spearman_dl_s2_and_di_s2_separately": true,
+    "each_critical_stratum_fraction_at_least": 0.10,
+    "s2_effect_after_position_difficulty_di_control": "positive_95ci_on_paired_bridge_minus_base_s2_residual_auc",
+    "phi_positive_prevalence_is_reported": true
+  },
+  "acceptance_gate_calibration": {
+    "improvements": ["base_minus_bridge_s2_residual_auc", "bridge_minus_base_agree_at_K"],
+    "statistic": "maximum_of_the_two_null_standardized_positive_improvements",
+    "threshold": "one_global_frozen_q95_of_the_joint_max_statistic_null",
+    "decision": "accept_only_when_observed_max_statistic_exceeds_the_global_q95",
+    "forbidden": "separate_metricwise_q95_tests_combined_with_OR_or_position_specific_primary_thresholds",
+    "position_role": "diagnostic_and_prespecified_covariate_only"
+  },
+  "freeze_artifact": [
+    "thresholds",
+    "global_raw_D_and_C_q05_q95",
+    "global_state_band_q25_q75",
+    "position_stratified_stability_report",
+    "global_joint_gate_max_statistic_q95",
+    "prefix_position_cut_points",
+    "calibration_split_sha256",
+    "teacher_revision",
+    "student_revision",
+    "tokenizer_sha256",
+    "vocabulary_sha256",
+    "trd_epistemic_lexicon_artifact_sha256",
+    "relay_single_token_lexicon_artifact_sha256",
+    "code_git_sha"
+  ],
+  "audit_invariants": [
+    "no_final_benchmark_prompt_in_calibration",
+    "teacher_and_student_vocab_hash_equal",
+    "trd_s2_ids_use_bare_and_leading_space_first_subtokens",
+    "relay_trigger_ids_keep_only_variants_that_encode_to_exactly_one_token",
+    "no_threshold_or_stratum_uses_realized_response_length",
+    "batch_q05_q95_values_are_not_reused_as_cross_batch_router_thresholds",
+    "threshold_artifact_is_immutable_after_d1"
+  ]
+}

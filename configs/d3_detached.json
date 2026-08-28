@@ -1,0 +1,48 @@
+{
+  "id": "D3",
+  "question": "Is the intervention benefit caused by the teacher leg entering future context rather than by better targets alone?",
+  "split": "same_frozen_trigger_manifest_as_d0_confirmatory_bank",
+  "arms": [
+    "normal_bridge_kv_retained",
+    "detached_bridge_kv_discarded",
+    "repair_query_matched"
+  ],
+  "probe_scope": {
+    "trigger": "first_eligible_relay_phi_positive_trigger_only",
+    "max_takeovers": 1,
+    "force_student_resume_after_teacher_leg": true,
+    "reason": "D3_requires_a_post_leg_outcome_even_though_canonical_Relay_would_terminate_after_the_Mth_leg"
+  },
+  "detached_contract": {
+    "teacher_leg_text": "bit_identical_to_normal_arm",
+    "teacher_leg_loss": "Relay_k1_RKL_on_the_actual_emitted_relay_token_identical_to_normal_arm",
+    "execution": "score_teacher_leg_from_original_prefix_then_delete_all_bridge_KV_and_reset_position_ids_before_a_separate_continuation_from_the_original_prefix",
+    "post_leg_student_context": "original_prefix_without_bridge_tokens",
+    "student_continuation_length": "paired_and_identical_to_normal_arm_until_EOS_or_domain_max_response_tokens; H_window_is_only_for_s2_and_the_verifier_uses_the_full_completion"
+  },
+  "gate": "disabled_for_context_causal_contrast",
+  "budget": {
+    "normal_vs_detached": "bit_identical_teacher_leg_implies_exact_generated_scored_and_prefill_token_equality; report_paired_gpu_seconds",
+    "repair_query_matched": "match_teacher_scored_tokens_student_supervised_tokens_and_optimizer_steps_within_one_percent_only",
+    "not_claimed_matched_to_repair": ["teacher_generated_tokens", "teacher_inserted_tokens", "teacher_prefill_tokens", "teacher_forward_calls", "teacher_gpu_seconds"],
+    "claim": "target_position_matched_not_compute_matched"
+  },
+  "primary_endpoints": [
+    "normal_minus_detached_verifier_pass",
+    "normal_minus_detached_s2_residual_auc",
+    "final_task_accuracy"
+  ],
+  "success_gate": {
+    "normal_vs_detached_verifier": "lower_95ci_of_normal_minus_detached_above_zero",
+    "normal_vs_detached_s2": "lower_95ci_of_detached_minus_normal_s2_residual_auc_above_zero"
+  },
+  "audit_invariants": [
+    "normal_and_detached_bridge_token_hash_equal",
+    "normal_and_detached_teacher_leg_k1_RKL_and_loss_mask_hash_equal",
+    "detached_post_leg_context_hash_equals_original_context_hash",
+    "both_arms_resume_after_the_first_leg_even_when_M_equals_one",
+    "normal_and_detached_realized_teacher_leg_and_student_continuation_token_counts_match_exactly",
+    "repair_target_and_supervised_position_counts_match_within_one_percent",
+    "detached_is_not_implemented_as_stop_gradient_over_retained_kv"
+  ]
+}

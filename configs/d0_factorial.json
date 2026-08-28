@@ -1,0 +1,116 @@
+{
+  "id": "D0",
+  "question": "Does the best action depend jointly on disagreement type and prefix damage under a matched target-position count?",
+  "split": "diagnostic_state_bank_disjoint_from_d1_and_final_evaluation",
+  "design": {
+    "factors": {
+      "signal_type": ["dl_top", "di_top"],
+      "s2_band": ["low", "high"],
+      "action": ["repair", "intervene"]
+    },
+    "signal_cell_rules": {
+      "dl_top": "DL_at_or_above_frozen_q75_and_DL_greater_than_DI",
+      "di_top": "DI_at_or_above_frozen_q75_and_DI_greater_than_DL",
+      "s2_low": "s2_at_or_below_frozen_q25",
+      "s2_high": "s2_at_or_above_frozen_q75",
+      "ties_and_middle_band": "excluded_before_randomization_and_reported"
+    },
+    "mechanism_probe": {
+      "unit_of_assignment": "isolated_frozen_prefix_state",
+      "assignment": "randomized_within_problem_difficulty_known_prefix_position_and_raw_divergence_blocks",
+      "estimand": "intention_to_treat_effect_of_forced_assigned_action",
+      "one_action_per_isolated_prefix_copy": true,
+      "shared_parameter_updates_across_states": false,
+      "acceptance_gate": "disabled"
+    },
+    "policy_training_check": {
+      "unit_of_assignment": "independent_training_run",
+      "arms": ["repair_only", "intervene_only", "rvi_opd", "a2_action_shuffled"],
+      "train_seeds": [13, 17, 23],
+      "analysis": "paired_seed_fixed_effect_or_seed_level_contrast_not_state_level_pseudoreplication"
+    },
+    "minimum_states": 1024,
+    "minimum_states_per_cell": 128,
+    "minimum_prompts": 300,
+    "minimum_distinct_prompts_per_cell": 50,
+    "paired_continuation_seeds_per_state": 4,
+    "sample_size_rule": "may_increase_but_not_decrease_after_a_blinded_variance_and_prompt_ICC_simulation_frozen_before_action_outcomes_are_unblinded"
+  },
+  "arms": [
+    "dl_top_s2_low_repair",
+    "dl_top_s2_low_intervene",
+    "dl_top_s2_high_repair",
+    "dl_top_s2_high_intervene",
+    "di_top_s2_low_repair",
+    "di_top_s2_low_intervene",
+    "di_top_s2_high_repair",
+    "di_top_s2_high_intervene"
+  ],
+  "repair": {
+    "loss": "teacher_top_128_forward_cross_entropy_with_teacher_distribution_renormalized_and_student_full_softmax",
+    "context_depth": 0,
+    "probe_update": "same_temporary_adapter_contract_as_D2",
+    "quota": "repair_scored_positions_equal_realized_bridge_length_within_preregistered_stratum"
+  },
+  "intervene": {
+    "relay_phi_definition": "phi(c)=1[argmax_v p_T(v|c) is in the frozen single-token Relay reflection-ID set R] times 1[TopK_S(c;K=5) intersection R is empty]",
+    "eligibility": "frozen_s2_cell_and_relay_phi(c)_equals_one",
+    "handoff_top_k": 5,
+    "teacher_leg_first_token": "teacher_global_argmax_that_satisfies_relay_phi",
+    "max_takeovers_for_policy_training": 2,
+    "max_takeovers_for_isolated_probe": 1,
+    "force_student_resume_after_single_leg_isolated_probe": true,
+    "teacher_paragraphs": 3,
+    "paragraph_delimiter": "\n\n",
+    "actual_token_cap_per_leg": 256,
+    "cooldown_valid_triggers": 1,
+    "rvi_policy_training_terminal_behavior_after_mth_leg": true
+  },
+  "gate": "disabled_for_factorial_action_assignment; evaluated separately in A4 and enabled only in end-to-end RvI",
+  "budget": {
+    "exact_count_match_on": [
+      "examples",
+      "teacher_scored_tokens",
+      "student_supervised_tokens",
+      "optimizer_steps"
+    ],
+    "relative_tolerance": 0.01,
+    "claim": "target_and_supervision_position_count_matched_not_strict_teacher_compute_matched; teacher_scored_tokens means every autoregressive teacher decode position in intervene and every teacher distribution-scoring position in repair, so it is a query-position equivalent rather than a FLOP or wall-time equivalence",
+    "secondary_compute_control": "repair_plus_discarded_sham_generation_matched_on_prefill_decode_and_measured_teacher_gpu_seconds",
+    "report_but_do_not_claim_matched": [
+      "teacher_generated_tokens",
+      "teacher_inserted_tokens",
+      "teacher_prefill_tokens",
+      "gate_teacher_scored_tokens",
+      "teacher_forward_calls_under_dynamic_batching",
+      "teacher_gpu_seconds",
+      "student_gpu_seconds"
+    ]
+  },
+  "primary_endpoints": [
+    "action_by_signal_by_s2_interaction_on_verifier_pass",
+    "h_token_s2_residual_auc",
+    "fixed_context_teacher_student_kl_reduction"
+  ],
+  "confirmatory_contrast": {
+    "cell_mean_formula": "delta3=[(mu_I_DI_high-mu_R_DI_high)-(mu_I_DI_low-mu_R_DI_low)]-[(mu_I_DL_high-mu_R_DL_high)-(mu_I_DL_low-mu_R_DL_low)]",
+    "coding": {"action": {"repair": 0, "intervene": 1}, "signal_type": {"dl_top": 0, "di_top": 1}, "s2_band": {"low": 0, "high": 1}},
+    "direction": "delta3_lower_95ci_above_zero"
+  },
+  "success_gate": {
+    "interaction": "delta3_lower_95ci_above_zero_under_problem_clustered_randomization_inference",
+    "di_high_s2": "intervene_better_than_repair",
+    "di_low_s2": "repair_manipulation_check_has_positive_fixed_context_gain",
+    "off_support_learnability_claim": "repair_only_checkpoint_has_positive_gain_on_an_independent_prefix_bank"
+  },
+  "audit_invariants": [
+    "all_eight_cells_nonempty",
+    "same_trigger_manifest_across_action_counterfactuals",
+    "each_prefix_is_isolated_and_receives_no_shared_cross_state_update",
+    "assigned_action_is_not_changed_by_acceptance_gate",
+    "actual_not_nominal_paragraph_tokens_are_budgeted",
+    "budget_relative_error_at_most_one_percent",
+    "problem_is_the_statistical_cluster",
+    "three_training_seeds_are_not_fit_as_a_random_effect"
+  ]
+}

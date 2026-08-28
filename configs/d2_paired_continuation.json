@@ -1,0 +1,75 @@
+{
+  "id": "D2",
+  "question": "Can local repair align the marked distribution without producing the downstream recovery that a changed context produces?",
+  "split": "high_s2_mechanism_bank_disjoint_from_d1_and_main_benchmarks",
+  "arms": [
+    "base_theta0_original_context",
+    "repair_micro_update_then_freeze_original_context",
+    "bridge_theta0_changed_context"
+  ],
+  "sample": {
+    "minimum_states": 1000,
+    "minimum_prompts": 300,
+    "continuations_per_state": 4,
+    "candidate_h_tokens": [32, 64, 128],
+    "choose_h_on": "d1_only",
+    "paired_random_numbers": true
+  },
+  "repair_probe": {
+    "operation": "temporary_adapter_copy_fixed_context_fce_micro_update",
+    "adapter": {
+      "type": "LoRA",
+      "rank": 8,
+      "alpha": 16,
+      "dropout": 0.0,
+      "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+      "initialization": "fresh_zero_effect_adapter_for_each_state"
+    },
+    "optimizer": {
+      "name": "AdamW",
+      "learning_rate": 0.0001,
+      "betas": [0.9, 0.95],
+      "epsilon": 1e-8,
+      "weight_decay": 0.0,
+      "gradient_clip_norm": 1.0,
+      "optimizer_state_precision": "fp32"
+    },
+    "loss": "teacher_top_128_FCE_teacher_q_renormalized_student_full_softmax",
+    "stop_when": "relative_marked_position_KL_reduction_at_least_0.20_after_minimum_one_step_or_max_steps",
+    "minimum_steps": 1,
+    "max_steps": 8,
+    "include_max_step_failures_in_itt_analysis": true,
+    "interpretation": "marked_position_KL_is_a_manipulation_check_not_an_independent_confirmatory_discovery",
+    "important": "This is not an unchanged frozen student; it is frozen only after the micro-update."
+  },
+  "continuation_protocol": {
+    "short_window": "exactly_frozen_H_student_tokens_for_s2_residual_auc_with_EOS_masking",
+    "choose_h_rule": "on_D1_only_choose_smallest_H_whose_bridge_minus_repair_effect_keeps_the_same_sign_in_both_prompt_halves_and_changes_by_less_than_10_percent_relative_to_the_next_larger_H",
+    "task_outcome": "separate_paired_continuation_until_EOS_or_domain_max_response_tokens",
+    "verifier_input": "full_completion_only_never_the_H_token_fragment"
+  },
+  "primary_endpoints": [
+    "marked_position_kl_reduction",
+    "continuation_s2_residual_auc",
+    "verifier_pass_rate",
+    "time_to_recovery"
+  ],
+  "equivalence_margin": {
+    "repair_s2_change": "0.10_times_high_s2_baseline_median"
+  },
+  "success_gate": {
+    "repair_local_kl": "required_manipulation_check_reported_ITT_including_max_step_failures",
+    "repair_downstream_s2": "tost_equivalent_to_no_material_change",
+    "bridge_downstream_s2": "lower_than_repair_95ci",
+    "bridge_verifier": "higher_than_repair_95ci"
+  },
+  "audit_invariants": [
+    "base_and_repair_context_hash_identical",
+    "bridge_context_hash_differs",
+    "repair_probe_adapter_is_reset_for_each_state",
+    "paired_seed_streams_are_identical",
+    "verifier_never_scores_a_truncated_H_token_fragment_as_a_final_answer",
+    "repair_only_checkpoint_external_validity_uses_an_independent_prefix_bank",
+    "w1_failure_stops_expensive_main_training"
+  ]
+}

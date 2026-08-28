@@ -1,0 +1,132 @@
+{
+  "id": "E1",
+  "question": "Does RvI-OPD improve mathematical reasoning over selective and trajectory-intervention OPD under reproducible head-to-head settings?",
+  "split": "dapo_math_17k_english_train_with_grouped_calibration_and_diagnostic_holdouts",
+  "models": {
+    "teacher": "Qwen/Qwen3-4B-Instruct-2507",
+    "teacher_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+    "student": "Qwen/Qwen3-1.7B",
+    "student_revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+    "student_chat_template": {
+      "enable_thinking": false,
+      "system_prompt": "Please reason step by step, and put your final answer within \\boxed{}."
+    },
+    "revision_policy": "resolve_only_the_immutable_revisions_above_and_record_snapshot_hashes_before_run",
+    "shared_vocab_required": true
+  },
+  "data": {
+    "train": "BytedTsinghua-SIA/DAPO-Math-17k",
+    "revision": "65877096c24ffa7abc4e4fa5edb95cf3413a5674",
+    "language": "English",
+    "pinned_physical_rows_warning": 1791700,
+    "relay_exact_english_manifest": "not publicly available; publish this repository's deduplicated ID manifest and disclose the difference",
+    "dedupe": ["normalized_exact", "minhash", "equation_signature", "manual_review"],
+    "group_split": {
+      "fractions": {"train": 0.8, "d1_calibration": 0.1, "diagnostic": 0.1},
+      "seed": 20260828,
+      "unit": "normalized_exact_and_near_duplicate_cluster"
+    },
+    "required_frozen_counts": ["raw_physical_rows", "english_rows", "unique_normalized_prompt_clusters", "post_benchmark_denylist_clusters", "train_clusters", "calibration_clusters", "diagnostic_clusters"],
+    "required_artifacts": ["raw_snapshot_sha256", "cluster_membership_sha256", "benchmark_denylist_sha256", "final_split_manifest_sha256"]
+  },
+  "training": {
+    "framework": "verl",
+    "max_prompt_tokens": 2048,
+    "max_response_tokens": 16384,
+    "max_model_length": 34817,
+    "rollout_temperature": 1.0,
+    "rollout_top_p": 1.0,
+    "rollouts_per_prompt": 1,
+    "global_batch_size": 128,
+    "ppo_minibatch_size": 128,
+    "ppo_epochs": 1,
+    "clip_ratio": 0.2,
+    "learning_rate": 0.000001,
+    "learning_rate_schedule": "constant",
+    "training_epochs": 1
+  },
+  "baseline_contracts": {
+    "base": "immutable_student_checkpoint_evaluation_only_no_training_seed",
+    "teacher_upper_bound": "immutable_teacher_checkpoint_evaluation_only_no_training_seed",
+    "sft": "one_frozen_teacher_trajectory_per_training_prompt_and_token_cross_entropy",
+    "kd": "one_frozen_teacher_trajectory_per_training_prompt_with_teacher_top128_renormalized_FKL_adaptation_explicitly_named_KD_top128",
+    "vanilla_opd": "student_on_policy_rollout_with_sampled_reverse_KL_as_in_the_pinned_Relay_stack",
+    "fastopd_relay_fixed_prefix_reproduction": "choose_one_prefix_length_from_1024_2048_4096_8192_on_the_diagnostic_split_then_freeze_and_name_as_Relay_reproduction",
+    "skd": "K_equals_5_selectivity_with_teacher_top128_renormalized_FKL_clean_room_adaptation",
+    "tip_select": "freeze_the_exact_selector_loss_and_hyperparameters_from_the_pinned_paper_or_shared_upstream_before_any_final_evaluation; otherwise_rename_TIP_clean_room_adaptation",
+    "ta_opd": "top_5_percent_by_DL_with_standard_OPD_loss",
+    "relay_opd": "Relay_phi_K5_M2_L3_cap256_no_cooldown_terminate_after_Mth_leg_and_k1_RKL_on_actual_emitted_relay_token",
+    "trd_canonical_full_vocab": "canonical_full_vocabulary_forward_KL",
+    "trd_relay_top128_reproduction": "Relay_teacher_top128_renormalized_forward_KL_reproduction",
+    "repair_only": "frozen_global_D1_selector_with_teacher_top128_FCE_teacher_q_renormalized_and_student_full_softmax_at_original_contexts",
+    "intervene_only": "frozen_first_phi_positive_trigger_action_using_the_RvI_leg_contract_without_state_dependent_repair_choice",
+    "detached": "D3_first_phi_positive_M1_forced_resume_actual_token_k1_RKL_then_delete_bridge_KV_reset_positions_and_continue_original_prefix",
+    "rvi_opd": "frozen_global_D1_router_with_exact_Relay_phi_intervention_eligibility_joint_max_stat_gate_and_preregistered_repair_intervene_discard_actions",
+    "a2_action_shuffled": "within_frozen_blocks_permute_precomputed_requested_and_post_gate_effective_action_payload_realized_length_and_cost_signature_as_one_bundle_without_rerunning_gate_at_destination",
+    "grpo": "same_dataset_prompt_template_rollout_batch_and_verifier_reward_with_no_teacher_queries"
+  },
+  "arms": [
+    "base",
+    "teacher_upper_bound",
+    "sft",
+    "kd",
+    "vanilla_opd",
+    "fastopd_relay_fixed_prefix_reproduction",
+    "skd",
+    "tip_select",
+    "ta_opd",
+    "relay_opd",
+    "trd_canonical_full_vocab",
+    "trd_relay_top128_reproduction",
+    "repair_only",
+    "intervene_only",
+    "detached",
+    "rvi_opd",
+    "a2_action_shuffled"
+  ],
+  "seed_policy": {
+    "core_five_seeds": [13, 17, 23, 29, 31],
+    "core_trained_arms": ["vanilla_opd", "ta_opd", "relay_opd", "rvi_opd", "a2_action_shuffled"],
+    "evaluation_only_arms_without_training_seeds": ["base", "teacher_upper_bound"],
+    "mechanism_three_seeds": [13, 17, 23],
+    "mechanism_arms": ["repair_only", "intervene_only", "detached", "trd_canonical_full_vocab", "trd_relay_top128_reproduction"],
+    "secondary_seeds": [13, 17, 23]
+  },
+  "evaluation": {
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "max_response_tokens": 32768,
+    "max_model_length": 34817,
+    "metric_definition": "avg_at_k_is_the_arithmetic_mean_of_k_independent_exact_match_or_verifier_correct_indicators_not_pass_at_k",
+    "same_problem_and_sampling_seed_manifest_across_arms": true,
+    "cross_benchmark_normalized_and_near_duplicate_deduplication": true,
+    "benchmarks_32_samples": [
+      "AIME2024",
+      "AIME2025",
+      "AIME2026",
+      "AMC2023",
+      "HMMT_Feb2026",
+      "HMMT_Nov2025"
+    ],
+    "benchmarks_4_samples": ["MATH500", "OlympiadBench"],
+    "forgetting_check": {"benchmark": "MMLU", "questions": 2000, "shots": 5}
+  },
+  "primary_endpoints": [
+    "eight_benchmark_macro_mean",
+    "problem_level_pooled_accuracy",
+    "gain_per_teacher_gpu_second"
+  ],
+  "success_gate": {
+    "primary_comparator": "relay_opd",
+    "best_reproduced_baseline_claim": "lower_simultaneous_95ci_for_rvi_minus_every_preregistered_non_oracle_baseline_above_zero_using_a_max_statistic; otherwise_report_pairwise_effects_without_a_best_method_claim",
+    "mmlu_noninferiority": "upper_95ci_of_Base_minus_RvI_in_percentage_points_at_most_1.0",
+    "a2_router_claim": "rvi_better_than_action_shuffled_95ci"
+  },
+  "audit_invariants": [
+    "all_model_and_dataset_revisions_are_immutable",
+    "same_prompt_and_sampling_manifest_across_arms",
+    "benchmark_access_after_all_router_choices_are_frozen",
+    "problem_clustered_two_level_bootstrap",
+    "failed_runs_and_per_problem_scores_are_retained"
+  ]
+}

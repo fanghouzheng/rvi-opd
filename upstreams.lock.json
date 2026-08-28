@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-08-28",
+  "policy": "References are pinned for reproducibility. No upstream source is vendored; repositories without an explicit compatible license require clean-room formula reimplementation.",
+  "code": {
+    "relay_opd": {
+      "url": "https://github.com/ZJU-REAL/Relay-OPD.git",
+      "commit": "eab21451f99e1a40fbb244f556de766d153c88f5",
+      "license_note": "Apache-2.0 in the relay-opd subproject",
+      "recommended_base_stack": true
+    },
+    "trd": {
+      "url": "https://github.com/louieworth/trd.git",
+      "commit": "5f3894d776cb2b762a44e09f8ce8293a762e21af",
+      "license_note": "Apache-2.0"
+    },
+    "ta_opd": {
+      "url": "https://github.com/wyy-code/TA-OPD.git",
+      "commit": "ccdf21d2066466f3d616f63cd867cc49119c45e6",
+      "license_note": "No explicit top-level license observed; cite and clean-room reimplement"
+    },
+    "tip_paced": {
+      "url": "https://github.com/HJSang/OPSD_OnPolicyDistillation.git",
+      "commit": "aa7fb03dbe3efbbe2719f04fdc60be98f0b78244",
+      "license_note": "No explicit top-level license observed; cite and clean-room reimplement"
+    },
+    "verl": {
+      "url": "https://github.com/verl-project/verl.git",
+      "commit": "24f25b03aa4b54249a273655ebbcce06f484192b",
+      "license_note": "Apache-2.0"
+    },
+    "simple_evals": {
+      "url": "https://github.com/openai/simple-evals.git",
+      "commit": "652c89d0ca9df547706735883097e9537d40dc47",
+      "license_note": "MIT"
+    }
+  },
+  "models": {
+    "qwen3_4b_instruct_2507": {
+      "id": "Qwen/Qwen3-4B-Instruct-2507",
+      "revision": "cdbee75f17c01a7cc42f958dc650907174af0554"
+    },
+    "qwen3_1_7b": {
+      "id": "Qwen/Qwen3-1.7B",
+      "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
+    },
+    "qwen3_32b": {
+      "id": "Qwen/Qwen3-32B",
+      "revision": "9216db5781bf21249d130ec9da846c4624c16137"
+    },
+    "qwen3_4b": {
+      "id": "Qwen/Qwen3-4B",
+      "revision": "1cfa9a7208912126459214e8b04321603b3df60c"
+    },
+    "qwen3_8b": {
+      "id": "Qwen/Qwen3-8B",
+      "revision": "b968826d9c46dd6066d109eabc6255188de91218"
+    }
+  },
+  "evaluators": {
+    "healthbench_grader": {
+      "provider": "OpenAI",
+      "model": "gpt-4.1-2025-04-14",
+      "max_output_tokens": 2048,
+      "repeats": 1,
+      "source": "simple_evals pinned healthbench_eval.py"
+    }
+  },
+  "datasets": {
+    "dapo_math_17k": {
+      "id": "BytedTsinghua-SIA/DAPO-Math-17k",
+      "revision": "65877096c24ffa7abc4e4fa5edb95cf3413a5674",
+      "verified_physical_rows": 1791700,
+      "warning": "Pinned parquet has far more physical rows than unique prompts; mandatory normalized dedup, raw/unique/post-denylist/split counts and manifest audit"
+    },
+    "medical_o1_reasoning_sft": {
+      "id": "FreedomIntelligence/medical-o1-reasoning-SFT",
+      "revision": "fc2c9e8a37b38f38da6d449564a8c350b244aef4",
+      "selected_file": "medical_o1_sft.json",
+      "selected_file_sha256": "6a0289ebe0d07e3e77e8dbc81c31fcfc02cc99c7bca1602694cb2f76d505667e",
+      "selected_language": "English",
+      "license_note": "Dataset card declares Apache-2.0; audit every upstream source's provenance and terms before use"
+    },
+    "chat_doctor": {
+      "id": "avaliev/chat_doctor",
+      "revision": "19646f30de72c3890c6e0bc67579cbb538076822",
+      "selected_file": "train.json",
+      "role": "preregistered conversational-domain robustness source only",
+      "license_note": "Dataset card declares Apache-2.0; audit the original conversation-source terms before use"
+    },
+    "healthbench": {
+      "id": "openai/healthbench",
+      "revision": "40ee1968852fc57f625934251ac22be47077a8fb",
+      "license_note": "MIT; benchmark content must not be committed or printed"
+    }
+  }
+}

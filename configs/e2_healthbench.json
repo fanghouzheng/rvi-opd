@@ -1,0 +1,188 @@
+{
+  "id": "E2",
+  "question": "Do state intervention and local repair have different effects on globally dependent versus locally insertable HealthBench rubric satisfaction?",
+  "split": "medical_training_sources_only_healthbench_strictly_evaluation_only",
+  "models": {
+    "teacher": "Qwen/Qwen3-32B",
+    "teacher_revision": "9216db5781bf21249d130ec9da846c4624c16137",
+    "student": "Qwen/Qwen3-4B",
+    "student_revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+    "robustness_student": "Qwen/Qwen3-8B",
+    "robustness_student_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+    "revision_policy": "resolve_only_the_immutable_revisions_above_and_record_snapshot_hashes_before_run",
+    "chat_template": {
+      "enable_thinking": false,
+      "additional_system_prompt": "none",
+      "template_sha256": "required_before_first_run",
+      "stop_token_ids_sha256": "required_before_first_run",
+      "identical_for_teacher_student_and_all_arms": true
+    },
+    "shared_vocab_required": true,
+    "teacher_must_not_be_evaluator": true
+  },
+  "training_data": {
+    "confirmatory_primary": {
+      "dataset": "FreedomIntelligence/medical-o1-reasoning-SFT",
+      "revision": "fc2c9e8a37b38f38da6d449564a8c350b244aef4",
+      "file": "medical_o1_sft.json",
+      "file_sha256": "6a0289ebe0d07e3e77e8dbc81c31fcfc02cc99c7bca1602694cb2f76d505667e",
+      "language": "English",
+      "record_mapping": "user=Question; assistant=Complex_CoT + two_newlines + Response; reject_missing_or_non_string_fields",
+      "source_weight": 1.0
+    },
+    "robustness_only_after_primary_success": {
+      "dataset": "avaliev/chat_doctor",
+      "revision": "19646f30de72c3890c6e0bc67579cbb538076822",
+      "file": "train.json",
+      "record_mapping": "user=instruction + two_newlines + input; assistant=output; reject_missing_or_non_string_fields",
+      "exclude_upstream_test_and_validation_files": true,
+      "mixture": "source_balanced_sampler_with_probability_0.5_primary_medical_o1_and_0.5_chat_doctor_at_fixed_total_optimizer_steps",
+      "split": "rerun_the_same_80_10_10_normalized_near_duplicate_cluster_split_on_the_combined_robustness_pool_before_source_balanced_sampling",
+      "not_part_of_confirmatory_primary": true
+    },
+    "license_and_provenance": "Hugging_Face_cards_mark_both_snapshots_Apache_2_0_but_runtime_audit_must_trace_original_sources_and_terms; card_metadata_does_not_override_upstream_data_rights",
+    "group_split": {
+      "unit": "normalized_exact_and_near_duplicate_cluster",
+      "fractions": {"train": 0.8, "d1_calibration": 0.1, "diagnostic": 0.1},
+      "seed": 20260828,
+      "frozen_manifest_sha256": "required_before_training"
+    },
+    "required_counts": ["raw_rows_by_source", "english_rows", "unique_clusters", "post_healthbench_denylist_clusters", "train_clusters", "calibration_clusters", "diagnostic_clusters"]
+  },
+  "denylist": [
+    "healthbench_prompts",
+    "healthbench_rubrics",
+    "healthbench_examples",
+    "healthbench_reference_answers",
+    "healthbench_grader_rationales"
+  ],
+  "training": {
+    "framework": "verl_at_upstreams_lock_revision",
+    "max_prompt_tokens": 2048,
+    "max_response_tokens": 8192,
+    "max_model_length": 40960,
+    "rollout_temperature": 1.0,
+    "rollout_top_p": 1.0,
+    "rollouts_per_prompt": 1,
+    "effective_global_batch_size": 128,
+    "microbatch_and_gradient_accumulation": "chosen_in_C0_without_changing_effective_global_batch",
+    "learning_rate": 0.000001,
+    "learning_rate_schedule": "constant",
+    "training_epochs": 1
+  },
+  "arms": [
+    "base",
+    "sft",
+    "vanilla_opd",
+    "ta_opd",
+    "relay_opd",
+    "repair_only",
+    "intervene_only",
+    "trd_reference",
+    "rvi_opd",
+    "a2_action_shuffled"
+  ],
+  "baseline_contracts": {
+    "scope": "same_named_method_contracts_as_E1_except_E2_uses_the_locked_medical_data_chat_template_and_max_response",
+    "base": "immutable_Qwen3_4B_student_checkpoint_evaluation_only",
+    "sft": "one_frozen_Qwen3_32B_teacher_trajectory_per_training_prompt_and_token_cross_entropy",
+    "vanilla_opd": "student_on_policy_rollout_with_sampled_reverse_KL_in_the_pinned_Relay_stack",
+    "ta_opd": "top_5_percent_by_DL_with_standard_OPD_loss",
+    "relay_opd": "Relay_phi_K5_M2_L3_cap256_no_cooldown_terminate_after_Mth_leg_and_k1_RKL_on_actual_emitted_relay_token",
+    "repair_only": "teacher_top128_FCE_with_teacher_q_renormalized_and_student_full_softmax_at_selected_original_contexts_no_inserted_teacher_tokens",
+    "intervene_only": "same_RvI_teacher_leg_action_contract_at_every_eligible_frozen_trigger_without_state_dependent_repair_choice",
+    "trd_reference": "canonical_full_vocabulary_forward_KL_d_equals_infinity_reference",
+    "rvi_opd": "frozen_D1_global_signal_router_with_exact_Relay_phi_intervention_eligibility_joint_max_stat_gate_and_predeclared_repair_intervene_discard_actions",
+    "a2_action_shuffled": "constrained_within_block_shuffle_of_precomputed_requested_and_post_gate_effective_action_payload_realized_length_and_cost_signature_bundle_without_rerunning_gate_at_destination"
+  },
+  "official_evaluation": {
+    "implementation": "openai/simple-evals@652c89d0ca9df547706735883097e9537d40dc47",
+    "dataset_revision": "40ee1968852fc57f625934251ac22be47077a8fb",
+    "datasets": ["healthbench_full", "healthbench_hard"],
+    "full_prompt_count": 5000,
+    "hard_prompt_count": 1000,
+    "hard_is_subset_of_full": true,
+    "reuse_full_completions_for_hard_subset": true,
+    "score_formula": "for_each_prompt_raw_score=sum_of_weights_of_satisfied_items_including_negative_weights_divided_by_sum_of_positive_weights; official_aggregate=clip(mean_of_prompt_raw_scores,0,1); do_not_clip_each_prompt_first",
+    "negative_endpoint_formula": "sum_over_negative_items(abs(weight)*violation_indicator)_divided_by_sum_over_negative_items(abs(weight)); report_separately_not_as_an_official_score",
+    "grader": {
+      "model": "gpt-4.1-2025-04-14",
+      "max_tokens": 2048,
+      "n_repeats_primary": 1,
+      "sampler_and_template": "unmodified_healthbench_eval.py_physician_path_at_locked_commit",
+      "repeatability_audit": "three_independent_regrades_on_a_preregistered_10_percent_prompt_sample_reported_separately"
+    },
+    "answer_generation": {
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "max_input_tokens": 36864,
+      "max_response_tokens": 4096,
+      "max_model_length": 40960,
+      "overflow_policy": "preflight_failure_and_report_never_silent_benchmark_truncation",
+      "completions_per_checkpoint_prompt": 1,
+      "same_prompt_and_sampling_manifest_across_arms": true
+    },
+    "do_not_modify_official_items_or_score": true
+  },
+  "seed_policy": {
+    "training_seeds": [13, 17, 23],
+    "trained_arms": ["sft", "vanilla_opd", "ta_opd", "relay_opd", "repair_only", "intervene_only", "trd_reference", "rvi_opd", "a2_action_shuffled"],
+    "base_has_no_training_seed": true,
+    "aggregate_inference": "report_each_seed; primary_average_uses_a_two_level_paired_bootstrap_resampling_training_seed_then_prompt_with_leave_one_seed_out_sensitivity; base_is_re_evaluated_under_each_sampling_manifest_but_has_no_training_seed"
+  },
+  "rubric_annotation": {
+    "labels": ["INSERTABLE", "GLOBAL_REVISION", "MIXED"],
+    "sample": {
+      "prompts": 1000,
+      "sampling_frame": "healthbench_full",
+      "stratify_by": ["hard_membership", "frozen_official_theme"],
+      "sample_seed": 20260828,
+      "label_all_rubric_items_for_selected_prompts": true,
+      "manifest_sha256": "freeze_before_any_model_output_is_visible"
+    },
+    "completed_before_model_outputs_are_visible": true,
+    "two_independent_annotators": true,
+    "w0": {
+      "cohen_kappa_at_least": 0.70,
+      "each_primary_class_fraction_at_least": "0.20_of_all_labeled_rubric_items_after_adjudication",
+      "global_revision_example_coverage_at_least": "0.50_of_examples_have_at_least_one_GLOBAL_REVISION_rubric_item",
+      "mixed_fraction_at_most": 0.30,
+      "negative_item_grader_audit_required": true,
+      "publish_item_and_example_class_counts": true,
+      "adjudicate_all_disagreements_before_hash_freeze": true
+    }
+  },
+  "primary_endpoints": [
+    "official_healthbench_full_score",
+    "rvi_vs_repair_by_global_revision_vs_insertable_difference_in_differences"
+  ],
+  "key_secondary_endpoints": [
+    "official_healthbench_hard_score_overlapping_subset",
+    "weighted_negative_violation_rate",
+    "contradiction_rate_exploratory_until_independent_judge_revision_and_template_are_frozen"
+  ],
+  "statistics": {
+    "cluster": "prompt",
+    "rubric_model_controls": ["rubric_weight", "rubric_sign"],
+    "primary_interaction_contrast": "[(RvI_minus_repair)_GLOBAL_REVISION]-[(RvI_minus_repair)_INSERTABLE]",
+    "primary_interaction_direction": "lower_Holm_adjusted_95ci_above_zero",
+    "secondary_interaction_contrast": "[(intervene_only_minus_repair)_GLOBAL_REVISION]-[(intervene_only_minus_repair)_INSERTABLE]",
+    "secondary_interaction_multiplicity": "same_Holm_family",
+    "report_without_negative_items": true,
+    "confirmatory_holm_family": true
+  },
+  "success_gate": {
+    "w0_failure": "rubric_split_becomes_exploratory_but_official_score_remains_valid",
+    "global_revision_claim": "the_preregistered_RvI_difference_in_differences_has_a_Holm_adjusted_lower_95ci_above_zero",
+    "healthbench_material_margin": 0.01
+  },
+  "audit_invariants": [
+    "healthbench_hashes_absent_from_all_training_and_calibration_artifacts",
+    "rubric_label_file_hash_precedes_model_output_artifacts",
+    "annotators_blinded_to_method",
+    "evaluator_is_independent_of_teacher_and_router",
+    "no_healthbench_examples_are_committed_or_printed",
+    "data_provenance_and_license_audit_passes_before_training",
+    "claims_are_external_domain_behavior_not_clinical_validity_or_deployment_safety"
+  ]
+}

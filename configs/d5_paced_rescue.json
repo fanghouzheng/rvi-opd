@@ -1,0 +1,69 @@
+{
+  "id": "D5",
+  "question": "Can state intervention rescue prompts that PACED gives zero weight because the estimated pass rate is zero?",
+  "split": "training_prompts_selected_by_zero_of_eight_rollouts_then_confirmed_on_independent_rollouts",
+  "arms": [
+    "paced_weight_zero",
+    "jeffreys_smoothed_paced",
+    "repair",
+    "random_bridge",
+    "rvi_then_reestimate_paced_weight"
+  ],
+  "selection": {
+    "initial_rollouts": 8,
+    "independent_confirmation_rollouts": 32,
+    "confirmation_rule": "zero_of_32",
+    "post_action_paced_estimation_rollouts": 8,
+    "evaluation_rollouts": 32,
+    "all_four_seed_sets_are_disjoint": true,
+    "rollouts_are_pure_student_without_teacher_tokens": true
+  },
+  "sample_size": {
+    "minimum_confirmed_prompt_clusters_with_a_frozen_phi_positive_candidate": 200,
+    "may_increase_only_from_blinded_rescue_variance_and_cluster_ICC_before_arm_labels_are_unblinded": true
+  },
+  "paced_estimators": {
+    "canonical": "p_hat=k_over_K_and_w=p_hat_times_one_minus_p_hat_with_K=8",
+    "jeffreys": "p_tilde=(k+0.5)/(K+1)_and_w=p_tilde_times_one_minus_p_tilde_with_K=8",
+    "boundary_note": "canonical_PACED_assigns_exactly_zero_weight_when_k=0"
+  },
+  "one_cycle_schedule": {
+    "assignment_unit": "prompt_cluster",
+    "action_slot": "one_preregistered_noop_repair_random_bridge_or_RvI_action_before_reestimation",
+    "optimizer_batches_and_steps": "identical_across_arms; canonical_zero_weight_uses_a_logged_zero_gradient_sham_step",
+    "student_token_budget": "identical_across_arms",
+    "teacher_compute": "not_claimed_matched; report_teacher_generated_scored_tokens_and_gpu_seconds_and_compare_Pareto",
+    "post_action_weight": "computed_only_from_the_fresh_K=8_pure_student_rollouts",
+    "no_adaptive_recycling": true
+  },
+  "action_contracts": {
+    "candidate_manifest": "freeze_the_first_Relay_phi_positive_state_per_confirmed_prompt_from_the_base_checkpoint_before_arm_assignment",
+    "paced_weight_zero": "canonical_paced_loss_with_k_equals_zero_and_a_logged_zero_gradient_step",
+    "jeffreys_smoothed_paced": "same_paced_batch_with_the_frozen_Jeffreys_weight",
+    "repair": "fixed_context_teacher_top128_FCE_at_the_manifest_position_with_no_teacher_tokens_inserted",
+    "random_bridge": "within_frozen_difficulty_and_position_blocks_shuffle_a_precomputed_teacher_leg_payload_realized_length_and_cost_bundle_to_the_manifest_position",
+    "rvi_then_reestimate_paced_weight": "apply_the_frozen_RvI_router_and_joint_max_stat_gate_at_the_manifest_position_and_retain_requested_action_noncompliance_in_ITT"
+  },
+  "neighbor_transfer": {
+    "neighbors": "preclustered_by_normalized_prompt_equation_signature_and_frozen_embedding_before_any_rollout_outcome",
+    "evaluation": "held_out_prompt_clusters_only"
+  },
+  "primary_endpoints": [
+    "rescue_at_32",
+    "fraction_pass_rate_becomes_positive",
+    "post_rescue_paced_weight",
+    "held_out_neighbor_problem_transfer"
+  ],
+  "success_gate": {
+    "rvi_vs_jeffreys_paced": "prompt_cluster_paired_bootstrap_lower_95ci_above_zero",
+    "rvi_vs_random_bridge": "prompt_cluster_paired_bootstrap_lower_95ci_above_zero",
+    "transfer_required_for_capability_gain_claim": true
+  },
+  "audit_invariants": [
+    "regression_to_mean_controlled_by_independent_rollouts",
+    "all_selection_rollouts_are_budgeted",
+    "original_prompt_rescue_and_held_out_transfer_reported_separately",
+    "clopper_pearson_is_descriptive_per_prompt_only_not_the_arm_comparison",
+    "zero_gradient_steps_and_all_noncompliance_are_retained_in_itt"
+  ]
+}
