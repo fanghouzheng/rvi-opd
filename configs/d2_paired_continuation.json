@@ -1,5 +1,8 @@
 {
   "id": "D2",
+  "matrix_revision": "2026-08-01",
+  "citation_cutoff": "2026-08-01",
+  "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
   "question": "Can local repair align the marked distribution without producing the downstream recovery that a changed context produces?",
   "split": "high_s2_mechanism_bank_disjoint_from_d1_and_main_benchmarks",
   "arms": [
@@ -13,6 +16,8 @@
     "continuations_per_state": 4,
     "candidate_h_tokens": [32, 64, 128],
     "choose_h_on": "d1_only",
+    "h_selection_artifact": "freeze_candidate_effects_and_selected_H_hash_before_any_D2_arm_output",
+    "selected_h_must_be_one_of": [32, 64, 128],
     "paired_random_numbers": true
   },
   "repair_probe": {
@@ -44,7 +49,10 @@
   },
   "continuation_protocol": {
     "short_window": "exactly_frozen_H_student_tokens_for_s2_residual_auc_with_EOS_masking",
-    "choose_h_rule": "on_D1_only_choose_smallest_H_whose_bridge_minus_repair_effect_keeps_the_same_sign_in_both_prompt_halves_and_changes_by_less_than_10_percent_relative_to_the_next_larger_H",
+    "eos_stop_token_ids": [151645, 151643],
+    "full_completion_max_response_tokens": 16384,
+    "short_window_is_not_a_verifier_input": true,
+    "choose_h_rule": "on_D1_only_choose_smallest_H_in_32_or_64_whose_bridge_minus_repair_effect_keeps_the_same_sign_in_both_prompt_halves_and_changes_by_less_than_10_percent_relative_to_the_next_larger_H; if_neither_qualifies_freeze_H=128_and_label_the_window_stability_gate_failed",
     "task_outcome": "separate_paired_continuation_until_EOS_or_domain_max_response_tokens",
     "verifier_input": "full_completion_only_never_the_H_token_fragment"
   },
@@ -55,7 +63,9 @@
     "time_to_recovery"
   ],
   "equivalence_margin": {
-    "repair_s2_change": "0.10_times_high_s2_baseline_median"
+    "repair_s2_change_fraction_of_high_s2_baseline_median": 0.10,
+    "value_is_frozen_from_D1_before_D2_unblinding": true,
+    "tost_confidence": 0.90
   },
   "success_gate": {
     "repair_local_kl": "required_manipulation_check_reported_ITT_including_max_step_failures",
@@ -70,6 +80,7 @@
     "paired_seed_streams_are_identical",
     "verifier_never_scores_a_truncated_H_token_fragment_as_a_final_answer",
     "repair_only_checkpoint_external_validity_uses_an_independent_prefix_bank",
+    "selected_H_and_equivalence_margin_are_frozen_before_D2_arm_outputs",
     "w1_failure_stops_expensive_main_training"
   ]
 }

@@ -1,24 +1,46 @@
 {
   "id": "E2",
+  "matrix_revision": "2026-08-01",
+  "citation_cutoff": "2026-08-01",
+  "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
   "question": "Do state intervention and local repair have different effects on globally dependent versus locally insertable HealthBench rubric satisfaction?",
   "split": "medical_training_sources_only_healthbench_strictly_evaluation_only",
   "models": {
-    "teacher": "Qwen/Qwen3-32B",
-    "teacher_revision": "9216db5781bf21249d130ec9da846c4624c16137",
-    "student": "Qwen/Qwen3-4B",
-    "student_revision": "1cfa9a7208912126459214e8b04321603b3df60c",
-    "robustness_student": "Qwen/Qwen3-8B",
-    "robustness_student_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+    "teacher": "Qwen/Qwen3-4B-Instruct-2507",
+    "teacher_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+    "student": "Qwen/Qwen3-0.6B",
+    "student_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "student_checkpoint_role": "student",
+    "student_lineage_base_id": "Qwen/Qwen3-0.6B-Base",
+    "student_posttrained": true,
+    "student_is_instruct_named_checkpoint": false,
+    "optional_robustness_student": "Qwen/Qwen3-8B",
+    "optional_robustness_student_revision": "b968826d9c46dd6066d109eabc6255188de91218",
     "revision_policy": "resolve_only_the_immutable_revisions_above_and_record_snapshot_hashes_before_run",
     "chat_template": {
-      "enable_thinking": false,
-      "additional_system_prompt": "none",
-      "template_sha256": "required_before_first_run",
-      "stop_token_ids_sha256": "required_before_first_run",
-      "identical_for_teacher_student_and_all_arms": true
+      "native_template_enable_thinking": false,
+      "canonical_serializer_thinking": false,
+      "canonical_serializer": "rvi_opd_non_thinking_v1",
+      "system_prompt": "You are a helpful medical assistant. Provide a clear, complete, and safe answer while stating uncertainty and escalation conditions when relevant.",
+      "teacher_template_sha256": "required_before_first_run",
+      "student_template_sha256": "required_before_first_run",
+      "rendered_prompt_compatibility": "representative_English_Chinese_medical_unicode_special_token_and_long_boundary_fixtures_must_have_identical_teacher_student_token_ids_before_first_run",
+      "stop_token_ids": [151645, 151643],
+      "pad_token_id": 151643,
+      "identical_for_teacher_student": false,
+      "identical_within_all_arms": true,
+      "teacher_tokenizer_json_sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+      "student_tokenizer_json_sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+      "vocabulary_sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+      "teacher_merges_sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+      "student_merges_sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+      "teacher_tokenizer_model_max_length": 1010000,
+      "student_tokenizer_model_max_length": 131072,
+      "runtime_context_limit_overrides_tokenizer_metadata": 40960
     },
     "shared_vocab_required": true,
-    "teacher_must_not_be_evaluator": true
+    "teacher_must_not_be_evaluator": true,
+    "compatibility_gate": "C0_requires_equal_vocab_and_representative_canonical_rendered_token_IDs_plus_no_unintended_think_block; native_template_and_merges_file_hashes_may_differ_and_are_recorded"
   },
   "training_data": {
     "confirmatory_primary": {
@@ -28,6 +50,8 @@
       "file_sha256": "6a0289ebe0d07e3e77e8dbc81c31fcfc02cc99c7bca1602694cb2f76d505667e",
       "language": "English",
       "record_mapping": "user=Question; assistant=Complex_CoT + two_newlines + Response; reject_missing_or_non_string_fields",
+      "target_format": "assistant_target_is_Complex_CoT_then_two_newlines_then_Response_under_canonical_serializer",
+      "loss_mask": "assistant_target_tokens_only_excluding_system_user_and_chat_markers",
       "source_weight": 1.0
     },
     "robustness_only_after_primary_success": {
@@ -61,8 +85,12 @@
     "max_prompt_tokens": 2048,
     "max_response_tokens": 8192,
     "max_model_length": 40960,
+    "rollout_do_sample": true,
     "rollout_temperature": 1.0,
     "rollout_top_p": 1.0,
+    "rollout_top_k": 0,
+    "stop_token_ids": [151645, 151643],
+    "pad_token_id": 151643,
     "rollouts_per_prompt": 1,
     "effective_global_batch_size": 128,
     "microbatch_and_gradient_accumulation": "chosen_in_C0_without_changing_effective_global_batch",
@@ -70,34 +98,88 @@
     "learning_rate_schedule": "constant",
     "training_epochs": 1
   },
+  "routing_contract": {
+    "calibration": "medical_domain_D1_artifact_frozen_without_HealthBench_access",
+    "primary_quantiles": {"s1": 0.80, "s2": 0.80},
+    "analysis_band_quantiles": {"low": 0.25, "high": 0.75},
+    "threshold_scope": "global_frozen",
+    "trajectory_relative_ranks": "exploratory_only"
+  },
   "arms": [
     "base",
+    "teacher_upper_bound",
     "sft",
     "vanilla_opd",
+    "fastopd_relay_fixed_prefix_reproduction",
+    "skd",
     "ta_opd",
+    "tip_select",
     "relay_opd",
     "repair_only",
     "intervene_only",
-    "trd_reference",
+    "trd_canonical_full_vocab",
     "rvi_opd",
     "a2_action_shuffled"
   ],
+  "main_table_arms": [
+    "base",
+    "teacher_upper_bound",
+    "sft",
+    "vanilla_opd",
+    "fastopd_relay_fixed_prefix_reproduction",
+    "skd",
+    "ta_opd",
+    "tip_select",
+    "relay_opd",
+    "trd_canonical_full_vocab",
+    "rvi_opd"
+  ],
+  "supplementary_arms": ["repair_only", "intervene_only", "a2_action_shuffled"],
   "baseline_contracts": {
-    "scope": "same_named_method_contracts_as_E1_except_E2_uses_the_locked_medical_data_chat_template_and_max_response",
-    "base": "immutable_Qwen3_4B_student_checkpoint_evaluation_only",
-    "sft": "one_frozen_Qwen3_32B_teacher_trajectory_per_training_prompt_and_token_cross_entropy",
+    "scope": "the_final_matrix_requires_the_same_main_baseline_families_as_E1; every_medical_adaptation_is_named_and_uses_the_locked_medical_data_and_project_owned_non_thinking_serializer",
+    "base": "immutable_Qwen3_0.6B_student_checkpoint_evaluation_only; lineage_and_posttraining_status_are_recorded_in_models",
+    "teacher_upper_bound": "immutable_Qwen3_4B_Instruct_2507_checkpoint_evaluation_only_no_training_seed",
+    "sft": "one_frozen_Qwen3_4B_Instruct_2507_teacher_trajectory_per_training_prompt_and_token_cross_entropy",
     "vanilla_opd": "student_on_policy_rollout_with_sampled_reverse_KL_in_the_pinned_Relay_stack",
+    "fastopd_relay_fixed_prefix_reproduction": "freeze_one_prefix_length_on_the_medical_diagnostic_split_then_name_as_Relay_reproduction_not_official_FastOPD_code",
+    "skd": "K_equals_5_interleaved_selectivity_with_teacher_top128_renormalized_FKL_clean_room_medical_adaptation",
     "ta_opd": "top_5_percent_by_DL_with_standard_OPD_loss",
+    "tip_select": "freeze_the_selector_loss_and_hyperparameters_before_HealthBench_access_or_name_as_clean_room_adaptation",
     "relay_opd": "Relay_phi_K5_M2_L3_cap256_no_cooldown_terminate_after_Mth_leg_and_k1_RKL_on_actual_emitted_relay_token",
     "repair_only": "teacher_top128_FCE_with_teacher_q_renormalized_and_student_full_softmax_at_selected_original_contexts_no_inserted_teacher_tokens",
     "intervene_only": "same_RvI_teacher_leg_action_contract_at_every_eligible_frozen_trigger_without_state_dependent_repair_choice",
-    "trd_reference": "canonical_full_vocabulary_forward_KL_d_equals_infinity_reference",
-    "rvi_opd": "frozen_D1_global_signal_router_with_exact_Relay_phi_intervention_eligibility_joint_max_stat_gate_and_predeclared_repair_intervene_discard_actions",
+    "trd_canonical_full_vocab": "teacher_rewrites_the_student_answer_as_a_d_equals_infinity_trajectory_reference_with_canonical_full_vocabulary_forward_KL",
+    "rvi_opd": "frozen_D1_global_signal_router_with_exact_Relay_phi_intervention_eligibility_and_OR_over_s2_drop_or_teacher_preferred_gain_calibrated_by_one_joint_null_max_stat_q95_then_predeclared_repair_intervene_discard_actions",
     "a2_action_shuffled": "constrained_within_block_shuffle_of_precomputed_requested_and_post_gate_effective_action_payload_realized_length_and_cost_signature_bundle_without_rerunning_gate_at_destination"
   },
   "official_evaluation": {
     "implementation": "openai/simple-evals@652c89d0ca9df547706735883097e9537d40dc47",
-    "dataset_revision": "40ee1968852fc57f625934251ac22be47077a8fb",
+    "dataset": "openai/healthbench",
+    "staged_evaluation": {
+      "pilot_prompt_count": 500,
+      "pilot_name": "resource_and_grader_behavior_pilot",
+      "pilot_purpose": "length_cost_latency_and_grading_consistency_before_final_matrix; never_compare_candidate_arms_or_tune_router_loss_gate_or_claims",
+      "pilot_is_not_confirmatory": true,
+      "pilot_checkpoint_scope": "one_locked_reference_or_Base_checkpoint_only",
+      "pilot_prerequisite": "rubric_annotation_manifest_and_adjudication_hash_frozen_before_pilot_completion_generation",
+      "pilot_outputs_excluded_from_final_arm_comparisons": true,
+      "final_full_evaluation": "one_pass_over_all_5000_full_prompts_after_all_settings_are_frozen",
+      "hard_uses_indexed_full_completions": true,
+      "final_sampling_manifest_is_distinct_from_pilot": true
+    },
+    "revision": "40ee1968852fc57f625934251ac22be47077a8fb",
+    "dataset_files": {
+      "healthbench_full": {
+        "rows": 5000,
+        "sha256": "e99dd3c6372c10d6fcc5e385c5fae69d0dd40392dae56836ef9493ae324ecd2f"
+      },
+      "healthbench_hard": {
+        "rows": 1000,
+        "sha256": "b0320430e5cd974e746585594c1dd10b5a3fc2aff9c72b26106c2c4a069d74e9"
+      },
+      "hard_to_full_prompt_id_mapping_sha256": "64852846390fa7b3f65e1f0ae93d0160318188b6264023673184eef2dcf7bca7",
+      "mapping_serialization": "UTF-8_compact_JSONL_each_line_{prompt_id,full_index}_in_Hard_file_order_with_LF"
+    },
     "datasets": ["healthbench_full", "healthbench_hard"],
     "full_prompt_count": 5000,
     "hard_prompt_count": 1000,
@@ -113,11 +195,17 @@
       "repeatability_audit": "three_independent_regrades_on_a_preregistered_10_percent_prompt_sample_reported_separately"
     },
     "answer_generation": {
+      "do_sample": true,
       "temperature": 1.0,
       "top_p": 1.0,
+      "top_k": 0,
+      "stop_token_ids": [151645, 151643],
+      "pad_token_id": 151643,
       "max_input_tokens": 36864,
       "max_response_tokens": 4096,
       "max_model_length": 40960,
+      "eos_reserve": 0,
+      "max_new_tokens_includes_stop_token": true,
       "overflow_policy": "preflight_failure_and_report_never_silent_benchmark_truncation",
       "completions_per_checkpoint_prompt": 1,
       "same_prompt_and_sampling_manifest_across_arms": true
@@ -126,14 +214,45 @@
   },
   "seed_policy": {
     "training_seeds": [13, 17, 23],
-    "trained_arms": ["sft", "vanilla_opd", "ta_opd", "relay_opd", "repair_only", "intervene_only", "trd_reference", "rvi_opd", "a2_action_shuffled"],
-    "base_has_no_training_seed": true,
+    "trained_arms": ["sft", "vanilla_opd", "fastopd_relay_fixed_prefix_reproduction", "skd", "ta_opd", "tip_select", "relay_opd", "repair_only", "intervene_only", "trd_canonical_full_vocab", "rvi_opd", "a2_action_shuffled"],
+    "primary_main_trained_arms": ["sft", "vanilla_opd", "fastopd_relay_fixed_prefix_reproduction", "skd", "ta_opd", "tip_select", "relay_opd", "trd_canonical_full_vocab", "rvi_opd"],
+    "secondary_arms": ["repair_only", "intervene_only", "a2_action_shuffled"],
+    "evaluation_only_arms_without_training_seeds": ["base", "teacher_upper_bound"],
+    "trained_arm_partition": {
+      "primary_main": ["sft", "vanilla_opd", "fastopd_relay_fixed_prefix_reproduction", "skd", "ta_opd", "tip_select", "relay_opd", "trd_canonical_full_vocab", "rvi_opd"],
+      "secondary": ["repair_only", "intervene_only", "a2_action_shuffled"],
+      "evaluation_only": ["base", "teacher_upper_bound"]
+    },
     "aggregate_inference": "report_each_seed; primary_average_uses_a_two_level_paired_bootstrap_resampling_training_seed_then_prompt_with_leave_one_seed_out_sensitivity; base_is_re_evaluated_under_each_sampling_manifest_but_has_no_training_seed"
   },
   "rubric_annotation": {
     "labels": ["INSERTABLE", "GLOBAL_REVISION", "MIXED"],
+    "label_definitions": {
+      "INSERTABLE": "one_local_independently_insertable_span_can_satisfy_the_item_without_rewriting_other_parts",
+      "GLOBAL_REVISION": "satisfaction_depends_on_plan_correctness_cross_section_consistency_priority_or_the_absence_of_a_global_conflict",
+      "MIXED": "a_local_span_may_help_but_satisfaction_cannot_be_decided_without_global_structure"
+    },
+    "content_taxonomy_appendix_only": [
+      "LEX",
+      "PLAN_CORRECTNESS",
+      "PLAN_COMPLETENESS",
+      "CONTEXT"
+    ],
+    "content_taxonomy_is_not_the_primary_axis": true,
+    "content_taxonomy_workflow": {
+      "label_every_sampled_rubric_item": true,
+      "independent_of_satisfaction_mode_label": true,
+      "adjudication_and_hash_freeze_required": true,
+      "analysis_role": "appendix_attribution_only_no_W0_gate"
+    },
+    "generic_safety_boilerplate": {
+      "definition": "generic_escalation_or_safety_language_without_question_specific_actionable_plan_completeness",
+      "label_source": "frozen_appendix_content_labels_plus_blinded_adjudication",
+      "analysis_role": "exploratory_descriptive_only"
+    },
+    "negative_weight_sign_is_separate_from_satisfaction_label": true,
     "sample": {
-      "prompts": 1000,
+      "prompts": 500,
       "sampling_frame": "healthbench_full",
       "stratify_by": ["hard_membership", "frozen_official_theme"],
       "sample_seed": 20260828,
@@ -141,11 +260,19 @@
       "manifest_sha256": "freeze_before_any_model_output_is_visible"
     },
     "completed_before_model_outputs_are_visible": true,
-    "two_independent_annotators": true,
+    "two_independent_human_annotators": true,
+    "blinded_llm_coder": {
+      "enabled": true,
+      "model_revision_and_prompt_sha256": "required_before_annotation_freeze",
+      "role": "independent_third_coder_and_disagreement_audit_not_the_official_grader",
+      "human_human_kappa_remains_the_W0_gate": true
+    },
     "w0": {
+      "verify_official_theme_weight_sign_and_axis_fields_before_sampling": true,
       "cohen_kappa_at_least": 0.70,
       "each_primary_class_fraction_at_least": "0.20_of_all_labeled_rubric_items_after_adjudication",
       "global_revision_example_coverage_at_least": "0.50_of_examples_have_at_least_one_GLOBAL_REVISION_rubric_item",
+      "sample_size_rule": "300_to_500_prompts;_500_is_the_frozen_default_and_may_only_decrease_to_300_before_any_model_output_is_visible",
       "mixed_fraction_at_most": 0.30,
       "negative_item_grader_audit_required": true,
       "publish_item_and_example_class_counts": true,
@@ -159,21 +286,40 @@
   "key_secondary_endpoints": [
     "official_healthbench_hard_score_overlapping_subset",
     "weighted_negative_violation_rate",
-    "contradiction_rate_exploratory_until_independent_judge_revision_and_template_are_frozen"
+    "contradiction_rate_exploratory_until_independent_judge_revision_and_template_are_frozen",
+    "generic_safety_boilerplate_without_actionable_completeness_exploratory"
   ],
   "statistics": {
     "cluster": "prompt",
+    "rubric_interaction_analysis_population": "frozen_500_prompt_rubric_manifest_or_300_if_reduced_before_any_model_output",
+    "rubric_interaction_completion_source": "post_freeze_final_Full_pass_only",
+    "rubric_interaction_excluded_labels": ["MIXED"],
+    "resource_pilot_outputs_are_never_reused": true,
     "rubric_model_controls": ["rubric_weight", "rubric_sign"],
     "primary_interaction_contrast": "[(RvI_minus_repair)_GLOBAL_REVISION]-[(RvI_minus_repair)_INSERTABLE]",
     "primary_interaction_direction": "lower_Holm_adjusted_95ci_above_zero",
     "secondary_interaction_contrast": "[(intervene_only_minus_repair)_GLOBAL_REVISION]-[(intervene_only_minus_repair)_INSERTABLE]",
     "secondary_interaction_multiplicity": "same_Holm_family",
+    "arm_level_predictions": {
+      "repair_insertable": "lower_Holm_adjusted_95ci_of_repair_minus_Base_above_zero",
+      "intervene_insertable": "lower_Holm_adjusted_95ci_of_intervene_minus_Base_above_zero",
+      "intervene_global_revision": "lower_Holm_adjusted_95ci_of_intervene_minus_Base_above_zero",
+      "repair_global_revision": "TOST_equivalent_to_zero_within_the_frozen_absolute_margin"
+    },
+    "repair_global_revision_equivalence": {
+      "absolute_weighted_satisfaction_margin": 0.01,
+      "confidence": 0.90,
+      "margin_frozen_before_any_arm_output": true,
+      "non_significance_is_not_equivalence": true
+    },
+    "arm_level_prediction_multiplicity": "same_Holm_family_for_directional_tests; TOST_reported_separately",
     "report_without_negative_items": true,
     "confirmatory_holm_family": true
   },
   "success_gate": {
     "w0_failure": "rubric_split_becomes_exploratory_but_official_score_remains_valid",
     "global_revision_claim": "the_preregistered_RvI_difference_in_differences_has_a_Holm_adjusted_lower_95ci_above_zero",
+    "w3_cosmetic_correction_gate": "repair_and_intervene_raise_INSERTABLE; intervene_raises_GLOBAL_REVISION; repair_is_TOST_equivalent_to_no_material_GLOBAL_REVISION_gain",
     "healthbench_material_margin": 0.01
   },
   "audit_invariants": [

@@ -11,6 +11,7 @@ from rvi_opd.signals import (
     decompose_grouped_batches,
     fit_frozen_scale,
     handoff_trigger,
+    handoff_trigger_from_ranked_ids,
     local_support_signal,
     quantile,
     reflection_mass,
@@ -79,8 +80,8 @@ class SignalTests(unittest.TestCase):
     def test_handoff_trigger_matches_teacher_student_asymmetry(self) -> None:
         teacher = {"Wait": 0.7, "So": 0.2, "x": 0.1}
         student = {"Wait": 0.01, "So": 0.8, "x": 0.19}
-        self.assertTrue(handoff_trigger(teacher, student, {"Wait"}, k=2))
-        self.assertFalse(handoff_trigger(teacher, student, {"Wait"}, k=3))
+        self.assertTrue(handoff_trigger(teacher, student, {"Wait"}, k=2, vocabulary_size=3))
+        self.assertFalse(handoff_trigger(teacher, student, {"Wait"}, k=3, vocabulary_size=3))
 
     def test_handoff_requires_same_vocabulary_and_complete_reflection_scores(self) -> None:
         with self.assertRaises(ValueError):
@@ -88,11 +89,72 @@ class SignalTests(unittest.TestCase):
                 {"Wait": 0.7, "x": 0.3},
                 {"Wait": 0.1, "y": 0.9},
                 {"Wait"},
+                vocabulary_size=2,
             )
         with self.assertRaises(ValueError):
-            handoff_trigger({"x": 1.0}, {"x": 1.0}, {"Wait"})
+            handoff_trigger({"x": 1.0}, {"x": 1.0}, {"Wait"}, vocabulary_size=1)
         with self.assertRaises(ValueError):
-            handoff_trigger({"x": 1.0}, {"x": 1.0}, set())
+            handoff_trigger({"x": 1.0}, {"x": 1.0}, set(), vocabulary_size=1)
+
+    def test_handoff_probability_api_rejects_truncated_rankings(self) -> None:
+        full_teacher = {"Wait": 0.4, "hidden": 0.5, "x": 0.1}
+        full_student = {"Wait": 0.01, "hidden": 0.8, "x": 0.19}
+        self.assertFalse(
+            handoff_trigger(full_teacher, full_student, {"Wait"}, k=1, vocabulary_size=3)
+        )
+        with self.assertRaises(ValueError):
+            handoff_trigger(
+                {"Wait": 0.4, "x": 0.1},
+                {"Wait": 0.01, "x": 0.19},
+                {"Wait"},
+                k=1,
+                vocabulary_size=3,
+            )
+
+    def test_handoff_ranked_id_api_binds_global_rankings_to_vocabulary(self) -> None:
+        digest = "a" * 64
+        self.assertTrue(
+            handoff_trigger_from_ranked_ids(
+                10,
+                [20, 21, 22, 23, 24],
+                {10},
+                k=5,
+                teacher_vocabulary_sha256=digest,
+                student_vocabulary_sha256=digest,
+                vocabulary_size=100,
+            )
+        )
+        self.assertFalse(
+            handoff_trigger_from_ranked_ids(
+                10,
+                [20, 10, 22, 23, 24],
+                {10},
+                k=5,
+                teacher_vocabulary_sha256=digest,
+                student_vocabulary_sha256=digest,
+                vocabulary_size=100,
+            )
+        )
+        with self.assertRaises(ValueError):
+            handoff_trigger_from_ranked_ids(
+                10,
+                [20, 21, 22, 23, 24],
+                {10},
+                k=5,
+                teacher_vocabulary_sha256=digest,
+                student_vocabulary_sha256="b" * 64,
+                vocabulary_size=100,
+            )
+        with self.assertRaises(ValueError):
+            handoff_trigger_from_ranked_ids(
+                10,
+                [20, 21, 22],
+                {10},
+                k=5,
+                teacher_vocabulary_sha256=digest,
+                student_vocabulary_sha256=digest,
+                vocabulary_size=100,
+            )
 
     def test_quantile_interpolates(self) -> None:
         self.assertAlmostEqual(quantile([0.0, 10.0], 0.25), 2.5)

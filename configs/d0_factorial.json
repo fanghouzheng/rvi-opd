@@ -1,24 +1,43 @@
 {
   "id": "D0",
-  "question": "Does the best action depend jointly on disagreement type and prefix damage under a matched target-position count?",
+  "matrix_revision": "2026-08-01",
+  "citation_cutoff": "2026-08-01",
+  "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
+  "question": "Does the best action depend on disagreement type under matched target/query-position counts, with s2-high states showing the predicted context-recovery split?",
   "split": "diagnostic_state_bank_disjoint_from_d1_and_final_evaluation",
   "design": {
     "factors": {
       "signal_type": ["dl_top", "di_top"],
-      "s2_band": ["low", "high"],
       "action": ["repair", "intervene"]
     },
     "signal_cell_rules": {
       "dl_top": "DL_at_or_above_frozen_q75_and_DL_greater_than_DI",
       "di_top": "DI_at_or_above_frozen_q75_and_DI_greater_than_DL",
-      "s2_low": "s2_at_or_below_frozen_q25",
-      "s2_high": "s2_at_or_above_frozen_q75",
       "ties_and_middle_band": "excluded_before_randomization_and_reported"
+    },
+    "s2_analysis_strata": {
+      "low": "s2_at_or_below_frozen_q25",
+      "high": "s2_at_or_above_frozen_q75",
+      "role": "prespecified_subgroup_and_mechanism_readout_not_a_randomized_factor",
+      "minimum_states_per_signal_action_stratum": 64,
+      "minimum_distinct_prompts_per_signal_action_stratum": 20,
+      "subgroup_contrast": "delta_s2=(mu_I_high-mu_R_high)-(mu_I_low-mu_R_low)",
+      "confirmatory": false,
+      "multiplicity": "exploratory_same_Holm_family_as_subgroup_endpoints",
+      "claim_boundary": "subgroup evidence cannot be called a two-signal routing theorem"
     },
     "mechanism_probe": {
       "unit_of_assignment": "isolated_frozen_prefix_state",
-      "assignment": "randomized_within_problem_difficulty_known_prefix_position_and_raw_divergence_blocks",
+      "assignment": "randomized_within_problem_difficulty_known_prefix_position_raw_divergence_and_s2_strata_blocks",
+      "randomization_block_keys": [
+        "problem_id",
+        "difficulty_bin",
+        "prefix_position_stratum",
+        "s2_analysis_stratum"
+      ],
+      "randomization_seed": 20260828,
       "estimand": "intention_to_treat_effect_of_forced_assigned_action",
+      "noncompliance": "record_requested_action_and_effective_action; analyze_requested_action_as_ITT_and_report_compliance",
       "one_action_per_isolated_prefix_copy": true,
       "shared_parameter_updates_across_states": false,
       "acceptance_gate": "disabled"
@@ -30,21 +49,25 @@
       "analysis": "paired_seed_fixed_effect_or_seed_level_contrast_not_state_level_pseudoreplication"
     },
     "minimum_states": 1024,
-    "minimum_states_per_cell": 128,
+    "minimum_states_per_cell": 256,
+    "minimum_states_per_signal_action_s2_subgroup": 64,
+    "minimum_distinct_prompts_per_signal_action_s2_subgroup": 20,
     "minimum_prompts": 300,
     "minimum_distinct_prompts_per_cell": 50,
     "paired_continuation_seeds_per_state": 4,
+    "prefix_position": {
+      "quantity": "token_index_divided_by_max_response_tokens",
+      "max_response_tokens": 16384,
+      "available_before_assignment": true,
+      "realized_response_length_not_allowed": true
+    },
     "sample_size_rule": "may_increase_but_not_decrease_after_a_blinded_variance_and_prompt_ICC_simulation_frozen_before_action_outcomes_are_unblinded"
   },
   "arms": [
-    "dl_top_s2_low_repair",
-    "dl_top_s2_low_intervene",
-    "dl_top_s2_high_repair",
-    "dl_top_s2_high_intervene",
-    "di_top_s2_low_repair",
-    "di_top_s2_low_intervene",
-    "di_top_s2_high_repair",
-    "di_top_s2_high_intervene"
+    "dl_top_repair",
+    "dl_top_intervene",
+    "di_top_repair",
+    "di_top_intervene"
   ],
   "repair": {
     "loss": "teacher_top_128_forward_cross_entropy_with_teacher_distribution_renormalized_and_student_full_softmax",
@@ -54,7 +77,8 @@
   },
   "intervene": {
     "relay_phi_definition": "phi(c)=1[argmax_v p_T(v|c) is in the frozen single-token Relay reflection-ID set R] times 1[TopK_S(c;K=5) intersection R is empty]",
-    "eligibility": "frozen_s2_cell_and_relay_phi(c)_equals_one",
+    "eligibility": "frozen_s2_analysis_stratum_and_relay_phi(c)_equals_one",
+    "eligibility_population": "all_D0_states_are_assigned_by_signal_cell; only_phi_positive_intervene_requests_are_compliance_eligible_and_noneligible_requests_are_retained_in_ITT",
     "handoff_top_k": 5,
     "teacher_leg_first_token": "teacher_global_argmax_that_satisfies_relay_phi",
     "max_takeovers_for_policy_training": 2,
@@ -88,24 +112,40 @@
     ]
   },
   "primary_endpoints": [
-    "action_by_signal_by_s2_interaction_on_verifier_pass",
-    "h_token_s2_residual_auc",
+    "action_by_signal_interaction_on_verifier_pass",
+    "high_s2_subgroup_s2_residual_auc",
     "fixed_context_teacher_student_kl_reduction"
   ],
+  "secondary_endpoints": ["teacher_gpu_second_pareto"],
   "confirmatory_contrast": {
-    "cell_mean_formula": "delta3=[(mu_I_DI_high-mu_R_DI_high)-(mu_I_DI_low-mu_R_DI_low)]-[(mu_I_DL_high-mu_R_DL_high)-(mu_I_DL_low-mu_R_DL_low)]",
-    "coding": {"action": {"repair": 0, "intervene": 1}, "signal_type": {"dl_top": 0, "di_top": 1}, "s2_band": {"low": 0, "high": 1}},
-    "direction": "delta3_lower_95ci_above_zero"
+    "formula": "delta2=(mu_I_DI-mu_R_DI)-(mu_I_DL-mu_R_DL)",
+    "coding": {
+      "action": {"repair": 0, "intervene": 1},
+      "signal_type": {"dl_top": 0, "di_top": 1}
+    },
+    "direction": "delta2_lower_95ci_above_zero_under_problem_clustered_randomization_inference"
+  },
+  "subgroup_predictions": {
+    "di_high_s2": "intervene_better_than_repair_on_downstream_s2_and_verifier",
+    "di_low_s2": "repair_has_positive_fixed_context_gain_without_material_downstream_s2_change",
+    "dl_low_s2": "intervene_does_not_improve_cost_effectiveness_over_repair",
+    "surface_repair_signature": "di_high_s2_repair_aligns_marked_position_but_does_not_reduce_downstream_s2"
   },
   "success_gate": {
-    "interaction": "delta3_lower_95ci_above_zero_under_problem_clustered_randomization_inference",
+    "interaction": "delta2_lower_95ci_above_zero",
     "di_high_s2": "intervene_better_than_repair",
     "di_low_s2": "repair_manipulation_check_has_positive_fixed_context_gain",
-    "off_support_learnability_claim": "repair_only_checkpoint_has_positive_gain_on_an_independent_prefix_bank"
+    "exploratory_off_support_description": "repair_only_checkpoint_positive_gain_is_reported_descriptively_and_is_not_a_support_coverage_theorem"
+  },
+  "analysis": {
+    "primary_cluster": "problem_id",
+    "randomization_inference": "within_problem_block_permutation_of_requested_action",
+    "subgroup_reporting": "report_delta_s2_high_low_with_Holm_adjusted_interval; do_not_upgrade_to_main_claim_without_prespecified_interaction"
   },
   "audit_invariants": [
-    "all_eight_cells_nonempty",
+    "all_four_cells_nonempty",
     "same_trigger_manifest_across_action_counterfactuals",
+    "s2_high_and_s2_low_subgroup_counts_are_reported_without_reassigning_action",
     "each_prefix_is_isolated_and_receives_no_shared_cross_state_update",
     "assigned_action_is_not_changed_by_acceptance_gate",
     "actual_not_nominal_paragraph_tokens_are_budgeted",

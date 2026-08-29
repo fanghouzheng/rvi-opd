@@ -1,5 +1,8 @@
 {
   "id": "D3",
+  "matrix_revision": "2026-08-01",
+  "citation_cutoff": "2026-08-01",
+  "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
   "question": "Is the intervention benefit caused by the teacher leg entering future context rather than by better targets alone?",
   "split": "same_frozen_trigger_manifest_as_d0_confirmatory_bank",
   "arms": [
@@ -18,11 +21,29 @@
     "teacher_leg_loss": "Relay_k1_RKL_on_the_actual_emitted_relay_token_identical_to_normal_arm",
     "execution": "score_teacher_leg_from_original_prefix_then_delete_all_bridge_KV_and_reset_position_ids_before_a_separate_continuation_from_the_original_prefix",
     "post_leg_student_context": "original_prefix_without_bridge_tokens",
-    "student_continuation_length": "paired_and_identical_to_normal_arm_until_EOS_or_domain_max_response_tokens; H_window_is_only_for_s2_and_the_verifier_uses_the_full_completion"
+    "student_continuation_length": "paired_random_numbers_for_H_window; each_full_completion_runs_until_EOS_or_domain_max_response_tokens_and_realized_lengths_are_reported_separately"
   },
+  "action_event_schema": {
+    "required_fields": [
+      "event_id",
+      "state_id",
+      "problem_id",
+      "requested_action",
+      "effective_action",
+      "teacher_leg_token_ids_sha256",
+      "teacher_leg_loss_mask_sha256",
+      "original_context_sha256",
+      "post_leg_context_sha256",
+      "student_continuation_token_count",
+      "cost_signature"
+    ],
+    "normal_detached_payload_hash_must_match": true,
+    "kv_deletion_operation": "delete_bridge_kv_and_reset_position_ids_not_stop_gradient"
+  },
+  "eos_stop_token_ids": [151645, 151643],
   "gate": "disabled_for_context_causal_contrast",
   "budget": {
-    "normal_vs_detached": "bit_identical_teacher_leg_implies_exact_generated_scored_and_prefill_token_equality; report_paired_gpu_seconds",
+    "normal_vs_detached": "bit_identical_teacher_leg_implies_exact_teacher_leg_generated_scored_and_prefill_token_equality; student_continuation_lengths_and_prefill_can_differ_after_KV_deletion_and_are_reported_separately",
     "repair_query_matched": "match_teacher_scored_tokens_student_supervised_tokens_and_optimizer_steps_within_one_percent_only",
     "not_claimed_matched_to_repair": ["teacher_generated_tokens", "teacher_inserted_tokens", "teacher_prefill_tokens", "teacher_forward_calls", "teacher_gpu_seconds"],
     "claim": "target_position_matched_not_compute_matched"
@@ -41,7 +62,7 @@
     "normal_and_detached_teacher_leg_k1_RKL_and_loss_mask_hash_equal",
     "detached_post_leg_context_hash_equals_original_context_hash",
     "both_arms_resume_after_the_first_leg_even_when_M_equals_one",
-    "normal_and_detached_realized_teacher_leg_and_student_continuation_token_counts_match_exactly",
+    "normal_and_detached_realized_teacher_leg_token_counts_match_exactly; student_continuation_is_paired_for_H_window_but_full_EOS_lengths_are_not_assumed_equal",
     "repair_target_and_supervised_position_counts_match_within_one_percent",
     "detached_is_not_implemented_as_stop_gradient_over_retained_kv"
   ]

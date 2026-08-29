@@ -12,6 +12,9 @@ from .models import Action, ActionAssignment, RouteDecision, StateSignal
 from .signals import FrozenScaleArtifact, quantile
 
 
+PRIMARY_ROUTER_QUANTILE = 0.80
+
+
 @dataclass(frozen=True)
 class ThresholdArtifact:
     s1_threshold: float
@@ -34,8 +37,19 @@ class ThresholdArtifact:
     compatibility_q_low: Optional[float] = None
     compatibility_q_high: Optional[float] = None
     scale_artifact_sha256: str = ""
+    # Legacy single-lexicon fields remain readable but can never satisfy the
+    # production contract, which requires distinct TRD and Relay artifacts.
     lexicon_artifact_sha256: str = ""
     reflection_token_ids: Tuple[int, ...] = ()
+    trd_epistemic_lexicon_artifact_sha256: str = ""
+    relay_single_token_lexicon_artifact_sha256: str = ""
+    trd_epistemic_token_ids: Tuple[int, ...] = ()
+    relay_single_token_ids: Tuple[int, ...] = ()
+    s1_q25: Optional[float] = None
+    s1_q75: Optional[float] = None
+    s2_q25: Optional[float] = None
+    s2_q75: Optional[float] = None
+    threshold_scope: str = "global_frozen"
 
     def __post_init__(self) -> None:
         numeric = {
@@ -74,6 +88,8 @@ class ThresholdArtifact:
             "calibration_split_sha256",
             "scale_artifact_sha256",
             "lexicon_artifact_sha256",
+            "trd_epistemic_lexicon_artifact_sha256",
+            "relay_single_token_lexicon_artifact_sha256",
         )
         if any(not isinstance(getattr(self, name), str) for name in text_names):
             raise ValueError("threshold artifact metadata fields must be strings")
@@ -101,12 +117,37 @@ class ThresholdArtifact:
             self.frozen_scale()
         elif self.scale_artifact_sha256:
             raise ValueError("frozen-scale SHA256 requires all four scale anchors")
-        reflection_ids = []
-        for token_id in self.reflection_token_ids:
-            if isinstance(token_id, bool) or not isinstance(token_id, int) or token_id < 0:
-                raise ValueError("reflection token IDs must be non-negative integers")
-            reflection_ids.append(token_id)
-        object.__setattr__(self, "reflection_token_ids", tuple(sorted(set(reflection_ids))))
+        for name in (
+            "reflection_token_ids",
+            "trd_epistemic_token_ids",
+            "relay_single_token_ids",
+        ):
+            token_ids = getattr(self, name)
+            if isinstance(token_ids, (str, bytes)):
+                raise ValueError(f"{name} must be a sequence of token IDs")
+            normalized_ids = []
+            for token_id in token_ids:
+                if isinstance(token_id, bool) or not isinstance(token_id, int) or token_id < 0:
+                    raise ValueError(f"{name} must contain non-negative integer token IDs")
+                normalized_ids.append(token_id)
+            object.__setattr__(self, name, tuple(sorted(set(normalized_ids))))
+        band_values = (self.s1_q25, self.s1_q75, self.s2_q25, self.s2_q75)
+        if any(value is not None for value in band_values):
+            if not all(
+                value is not None
+                and not isinstance(value, bool)
+                and isinstance(value, (int, float))
+                and math.isfinite(float(value))
+                and 0 <= float(value) <= 1
+                for value in band_values
+            ):
+                raise ValueError("all s1/s2 q25/q75 band thresholds must be finite probabilities")
+            if self.s1_q25 > self.s1_q75 or self.s2_q25 > self.s2_q75:
+                raise ValueError("s1/s2 q25 thresholds cannot exceed q75 thresholds")
+            for name in ("s1_q25", "s1_q75", "s2_q25", "s2_q75"):
+                object.__setattr__(self, name, float(getattr(self, name)))
+        if self.threshold_scope != "global_frozen":
+            raise ValueError("threshold_scope must be global_frozen")
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -145,8 +186,20 @@ class ThresholdArtifact:
             scale = self.frozen_scale()
         except ValueError:
             return False
+        band_values_ready = bool(
+            self.s1_q25 is not None
+            and self.s1_q75 is not None
+            and self.s2_q25 is not None
+            and self.s2_q75 is not None
+            and self.s1_q25 < self.s1_q75
+            and self.s2_q25 < self.s2_q75
+        )
         return bool(
             self.signal_schema_version == "rvi-signals-v3"
+            and self.normalization_low == 0.05
+            and self.normalization_high == 0.95
+            and self.s1_quantile == PRIMARY_ROUTER_QUANTILE
+            and self.s2_quantile == PRIMARY_ROUTER_QUANTILE
             and re.fullmatch(r"[0-9a-f]{64}", self.calibration_fingerprint)
             and re.fullmatch(r"[0-9a-f]{40}", self.teacher_revision)
             and re.fullmatch(r"[0-9a-f]{40}", self.student_revision)
@@ -155,8 +208,17 @@ class ThresholdArtifact:
             and re.fullmatch(r"[0-9a-f]{64}", self.calibration_split_sha256)
             and re.fullmatch(r"[0-9a-f]{64}", self.scale_artifact_sha256)
             and self.scale_artifact_sha256 == scale.artifact_sha256
-            and re.fullmatch(r"[0-9a-f]{64}", self.lexicon_artifact_sha256)
-            and bool(self.reflection_token_ids)
+            and re.fullmatch(
+                r"[0-9a-f]{64}", self.trd_epistemic_lexicon_artifact_sha256
+            )
+            and re.fullmatch(
+                r"[0-9a-f]{64}", self.relay_single_token_lexicon_artifact_sha256
+            )
+            and bool(self.trd_epistemic_token_ids)
+            and bool(self.relay_single_token_ids)
+            and band_values_ready
+            and self.s1_threshold >= self.s1_q75
+            and self.s2_threshold >= self.s2_q75
         )
 
     def frozen_scale(self) -> FrozenScaleArtifact:
@@ -187,9 +249,11 @@ class ThresholdArtifact:
     def assert_production_ready(self) -> None:
         if not self.production_ready:
             raise ValueError(
-                "threshold artifact needs schema v3, frozen raw-D/raw-C anchors and scale hash, "
-                "a calibration fingerprint, 40-hex model/code revisions, 64-hex tokenizer/"
-                "vocabulary/split/lexicon hashes, and reflection token IDs"
+                "threshold artifact needs schema v3, q05/q95 normalization, primary q80 "
+                "thresholds consistent with global q25/q75 bands, frozen raw-D/raw-C anchors "
+                "and scale hash, a calibration fingerprint, "
+                "40-hex model/code revisions, 64-hex tokenizer/vocabulary/split and distinct "
+                "TRD/Relay lexicon hashes, plus both non-empty token-ID sets"
             )
 
 
@@ -228,8 +292,8 @@ def _fingerprint(records: Sequence[StateSignal]) -> str:
 
 def calibrate_thresholds(
     calibration_records: Sequence[StateSignal],
-    s1_quantile: float = 0.80,
-    s2_quantile: float = 0.80,
+    s1_quantile: float = PRIMARY_ROUTER_QUANTILE,
+    s2_quantile: float = PRIMARY_ROUTER_QUANTILE,
     teacher_revision: str = "",
     student_revision: str = "",
     tokenizer_sha256: str = "",
@@ -239,6 +303,10 @@ def calibrate_thresholds(
     lexicon_artifact_sha256: str = "",
     reflection_token_ids: Sequence[int] = (),
     frozen_scale: Optional[FrozenScaleArtifact] = None,
+    trd_epistemic_lexicon_artifact_sha256: str = "",
+    relay_single_token_lexicon_artifact_sha256: str = "",
+    trd_epistemic_token_ids: Sequence[int] = (),
+    relay_single_token_ids: Sequence[int] = (),
 ) -> ThresholdArtifact:
     if not calibration_records:
         raise ValueError("calibration_records must not be empty")
@@ -291,6 +359,14 @@ def calibrate_thresholds(
         scale_artifact_sha256=scale_artifact_sha256,
         lexicon_artifact_sha256=lexicon_artifact_sha256,
         reflection_token_ids=tuple(reflection_token_ids),
+        trd_epistemic_lexicon_artifact_sha256=trd_epistemic_lexicon_artifact_sha256,
+        relay_single_token_lexicon_artifact_sha256=relay_single_token_lexicon_artifact_sha256,
+        trd_epistemic_token_ids=tuple(trd_epistemic_token_ids),
+        relay_single_token_ids=tuple(relay_single_token_ids),
+        s1_q25=quantile([record.s1 for record in calibration_records], 0.25),
+        s1_q75=quantile([record.s1 for record in calibration_records], 0.75),
+        s2_q25=quantile([record.s2 for record in calibration_records], 0.25),
+        s2_q75=quantile([record.s2 for record in calibration_records], 0.75),
     )
 
 
@@ -299,28 +375,57 @@ def route_state(
     thresholds: ThresholdArtifact,
     policy: RouterPolicy = RouterPolicy(),
 ) -> RouteDecision:
+    s2_stratum = record.s2_analysis_stratum
+    if s2_stratum == "unknown" and thresholds.s2_q25 is not None and thresholds.s2_q75 is not None:
+        if record.s2 <= thresholds.s2_q25:
+            s2_stratum = "low"
+        elif record.s2 >= thresholds.s2_q75:
+            s2_stratum = "high"
+        else:
+            s2_stratum = "middle"
+    intervention_available = (
+        record.relay_phi_eligible
+        and record.intervention_budget_available
+        and record.intervention_cooldown_available
+    )
     if (
         policy.repetition_threshold is not None
         and record.repetition_rate >= policy.repetition_threshold
     ):
-        if record.alternative_direction_available:
+        if record.alternative_direction_available and record.intervention_budget_available:
             action = Action.INTERVENE
-            reason = "d4_repetition_bypass_with_teacher_alternative"
+            reason = "d4_repetition_bypass_with_teacher_alternative_budget_eligible_nonrelay_phi"
         else:
             action = Action.DISCARD
-            reason = "d4_repetition_bypass_without_teacher_alternative"
-    elif policy.paced_zero_rescue and record.p_hat <= 0:
+            reason = (
+                "d4_repetition_bypass_without_budget_or_teacher_alternative"
+                if not record.intervention_budget_available
+                else "d4_repetition_bypass_without_teacher_alternative"
+            )
+    elif policy.paced_zero_rescue and record.p_hat <= 0 and intervention_available:
         action = Action.INTERVENE
-        reason = "d5_zero_pass_rate_rescue"
-    elif record.s2 >= thresholds.s2_threshold:
+        reason = "d5_zero_pass_rate_rescue_phi_budget_cooldown_eligible"
+    elif record.s2 >= thresholds.s2_threshold and intervention_available:
         action = Action.INTERVENE
-        reason = "high_s2_requires_new_state"
+        reason = "high_s2_relay_phi_budget_cooldown_eligible"
     elif record.s1 >= thresholds.s1_threshold:
         action = Action.REPAIR
-        reason = "high_s1_low_s2_locally_absorbable"
+        reason = (
+            "d5_zero_pass_rescue_intervention_unavailable_high_s1_repair"
+            if policy.paced_zero_rescue and record.p_hat <= 0
+            else "high_s2_intervention_unavailable_high_s1_repair"
+            if record.s2 >= thresholds.s2_threshold
+            else "high_s1_low_s2_locally_absorbable"
+        )
     else:
         action = Action.DISCARD
-        reason = "low_s1_low_s2"
+        reason = (
+            "d5_zero_pass_rescue_intervention_unavailable_low_s1_discard"
+            if policy.paced_zero_rescue and record.p_hat <= 0
+            else "high_s2_intervention_unavailable_low_s1_discard"
+            if record.s2 >= thresholds.s2_threshold
+            else "low_s1_low_s2"
+        )
     return RouteDecision(
         state_id=record.state_id,
         problem_id=record.problem_id,
@@ -331,6 +436,14 @@ def route_state(
         s1=record.s1,
         s2=record.s2,
         batch_id=record.batch_id,
+        max_response_tokens=record.max_response_tokens,
+        difficulty_bin=record.difficulty_bin,
+        prefix_position_stratum=record.prefix_position_stratum,
+        s2_analysis_stratum=s2_stratum,
+        trigger_manifest_sha256=record.trigger_manifest_sha256,
+        relay_phi_eligible=record.relay_phi_eligible,
+        intervention_budget_available=record.intervention_budget_available,
+        intervention_cooldown_available=record.intervention_cooldown_available,
     )
 
 
@@ -345,46 +458,13 @@ def route_batch(
 def permute_actions_within_blocks(
     decisions: Sequence[RouteDecision], seed: int, block_by: str = "problem_id"
 ) -> List[RouteDecision]:
-    """A2 control: shuffle state-action correspondence while preserving block counts."""
+    """Deprecated unsafe A2 helper; label-only shuffling is prohibited."""
 
-    if block_by not in {"problem_id", "trajectory_id", "global"}:
-        raise ValueError("block_by must be problem_id, trajectory_id, or global")
-    blocks: Dict[str, List[RouteDecision]] = {}
-    for decision in decisions:
-        key = "global" if block_by == "global" else str(getattr(decision, block_by))
-        blocks.setdefault(key, []).append(decision)
-
-    rng = random.Random(seed)
-    randomized: List[RouteDecision] = []
-    for key in sorted(blocks):
-        block = blocks[key]
-        actions = [decision.action for decision in block]
-        if len(actions) > 1 and len(set(actions)) > 1:
-            best = list(actions)
-            best_changes = -1
-            for _ in range(128):
-                candidate = list(actions)
-                rng.shuffle(candidate)
-                changes = sum(left != right for left, right in zip(actions, candidate))
-                if changes > best_changes:
-                    best = candidate
-                    best_changes = changes
-            actions = best
-        for decision, action in zip(block, actions):
-            randomized.append(
-                RouteDecision(
-                    state_id=decision.state_id,
-                    problem_id=decision.problem_id,
-                    trajectory_id=decision.trajectory_id,
-                    token_index=decision.token_index,
-                    action=action,
-                    reason="a2_permuted_within_" + block_by,
-                    s1=decision.s1,
-                    s2=decision.s2,
-                    batch_id=decision.batch_id,
-                )
-            )
-    return randomized
+    raise RuntimeError(
+        "label-only action permutation is not a valid A2 control; use "
+        "permute_action_bundles_within_blocks with requested/effective actions, "
+        "gate metadata, payload, realized length, and cost bound together"
+    )
 
 
 def _sattolo_indices(size: int, rng: random.Random) -> List[int]:
@@ -398,31 +478,43 @@ def _sattolo_indices(size: int, rng: random.Random) -> List[int]:
 def permute_action_bundles_within_blocks(
     assignments: Sequence[ActionAssignment], seed: int
 ) -> List[ActionAssignment]:
-    """A2 production helper: move action, bridge length, payload and cost as one bundle."""
+    """A2 production helper: derange one complete post-gate action bundle."""
 
+    if isinstance(seed, bool) or not isinstance(seed, int):
+        raise ValueError("seed must be an integer")
+    if not assignments:
+        raise ValueError("A2 bundle permutation requires at least one non-empty block")
     blocks: Dict[str, List[ActionAssignment]] = {}
+    all_state_ids = [assignment.state_id for assignment in assignments]
+    if len(all_state_ids) != len(set(all_state_ids)):
+        raise ValueError("A2 assignment state IDs must be globally unique")
     for assignment in assignments:
         blocks.setdefault(assignment.block_id, []).append(assignment)
+    for block_id, block in blocks.items():
+        state_ids = [assignment.state_id for assignment in block]
+        if len(state_ids) != len(set(state_ids)):
+            raise ValueError(f"A2 block {block_id!r} contains duplicate state IDs")
+        if len(block) < 2:
+            raise ValueError(f"A2 block {block_id!r} must contain at least two states")
     rng = random.Random(seed)
     output: List[ActionAssignment] = []
     for block_id in sorted(blocks):
         recipients = blocks[block_id]
-        donor_indices = (
-            _sattolo_indices(len(recipients), rng)
-            if len(recipients) > 1
-            else [0]
-        )
+        donor_indices = _sattolo_indices(len(recipients), rng)
         for recipient, donor_index in zip(recipients, donor_indices):
             donor = recipients[donor_index]
             output.append(
                 ActionAssignment(
                     state_id=recipient.state_id,
                     block_id=recipient.block_id,
-                    action=donor.action,
+                    requested_action=donor.requested_action,
+                    effective_action=donor.effective_action,
                     bridge_token_length=donor.bridge_token_length,
                     cost_signature=donor.cost_signature,
                     payload_hash=donor.payload_hash,
-                    source_state_id=donor.state_id,
+                    gate_status=donor.gate_status,
+                    gate_artifact_sha256=donor.gate_artifact_sha256,
+                    source_state_id=donor.source_state_id,
                 )
             )
     return output

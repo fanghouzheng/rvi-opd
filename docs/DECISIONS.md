@@ -1,14 +1,20 @@
 # Design decisions and resolved ambiguities
 
-## D0 includes s2 explicitly
+## D0 is a 2×2 mechanism test with an s2 subgroup readout
 
-The original 2×2 `D^L/D^I × action` cannot establish a two-signal state-dependent router because s2 is absent from the randomization. The confirmatory design is therefore 2×2×2 with an explicit s2 band. A compact paper figure may show selected contrasts, but all eight cells remain preregistered and public.
+The final matrix reports the two prespecified signal strata (`D^L-top` and `D^I-top`) crossed with repair/intervene. Only action is randomized within the blocked signal strata; signal type is an eligibility/stratification descriptor, not an assigned treatment. The high/low s2 bands are frozen, prespecified analysis subgroups (with a middle band and ties excluded before action assignment); s2 is not a third randomized factor. The confirmatory estimand is therefore action-effect heterogeneity, `Delta2`, across signal strata. We report the high-s2 and low-s2 action contrasts, with the subgroup family and its multiplicity rule made explicit, but do not promote a three-way `Delta3` claim from this design.
 
 The causal mechanism estimand uses isolated frozen-prefix copies with forced randomized actions, no gate and no shared cross-state update. Full policy training is a separate independent-run check. Mixing online parameter updates into state-level randomization would create interference and pseudoreplication.
+
+## Final matrix scope
+
+E1's confirmatory evaluation has seven benchmarks: AIME2024, AIME2025, AIME2026, AMC2023, HMMT-Feb2026, MATH500, and OlympiadBench (the first five use avg@32 and the latter two avg@4). E2 fixes the teacher/student pair to `Qwen/Qwen3-4B-Instruct-2507 → Qwen/Qwen3-0.6B`; HealthBench Full and Hard are evaluation-only, with Hard an overlapping subset of Full. The preregistered ablation set is A1–A8; no A9/A10 rows are part of the final matrix.
 
 ## D1 routing anchors are global and frozen
 
 TA-style batch q05/q95 normalization remains a state descriptor/reproduction diagnostic. Router decisions instead use one raw-D/raw-C q05/q95 transform frozen globally on D1; inference batch composition and realized/future response length never change a threshold. Known prefix position is a stability diagnostic/covariate only.
+
+The primary router thresholds `tau1/tau2` are the D1 global s1/s2 q80 values. The q25/q75 values are separate frozen boundaries for low/high subgroup reporting and D0 signal-cell eligibility; they are not alternative router thresholds. A5 may sweep q70/q75/q80, but only after q80 has been frozen as the primary setting.
 
 ## D2 repair is a temporary micro-update
 

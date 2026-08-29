@@ -10,11 +10,17 @@ from pathlib import Path
 from typing import List, Optional
 
 from .budget import BudgetLedger, LedgerEntry, audit_match
-from .config import load_config, validate_config_paths
+from .config import load_config, validate_config_paths, validate_upstreams_lock
 from .data_audit import build_prompt_manifest
 from .io import atomic_write_json, read_jsonl, write_jsonl
 from .models import CostVector, RawStateSignal
-from .router import RouterPolicy, ThresholdArtifact, calibrate_thresholds, route_batch
+from .router import (
+    PRIMARY_ROUTER_QUANTILE,
+    RouterPolicy,
+    ThresholdArtifact,
+    calibrate_thresholds,
+    route_batch,
+)
 from .signals import apply_frozen_scale, fit_frozen_scale
 from .smoke import run_smoke
 
@@ -30,6 +36,17 @@ def _build_parser() -> argparse.ArgumentParser:
 
     validate = subparsers.add_parser("validate-config", help="validate experiment JSON files")
     validate.add_argument("--config-dir", type=Path, default=Path("configs"))
+    validate.add_argument(
+        "--lock",
+        type=Path,
+        default=None,
+        help="upstreams.lock.json to cross-check model/data revisions (default: sibling of config-dir)",
+    )
+    validate.add_argument(
+        "--run-ready",
+        action="store_true",
+        help="also reject unresolved SHA256/revision placeholders required before a real run",
+    )
 
     route = subparsers.add_parser("route-jsonl", help="calibrate and route raw state-signal JSONL")
     threshold_source = route.add_mutually_exclusive_group(required=True)
@@ -38,8 +55,8 @@ def _build_parser() -> argparse.ArgumentParser:
     route.add_argument("--input", type=Path, required=True)
     route.add_argument("--output", type=Path, required=True)
     route.add_argument("--threshold-output", type=Path)
-    route.add_argument("--s1-quantile", type=float, default=0.75)
-    route.add_argument("--s2-quantile", type=float, default=0.75)
+    route.add_argument("--s1-quantile", type=float, default=PRIMARY_ROUTER_QUANTILE)
+    route.add_argument("--s2-quantile", type=float, default=PRIMARY_ROUTER_QUANTILE)
     route.add_argument("--normalization-low", type=float)
     route.add_argument("--normalization-high", type=float)
     route.add_argument("--repetition-threshold", type=float)
@@ -50,11 +67,35 @@ def _build_parser() -> argparse.ArgumentParser:
     route.add_argument("--vocabulary-sha256", default="")
     route.add_argument("--code-revision", default="")
     route.add_argument("--calibration-split-sha256", default="")
-    route.add_argument("--lexicon-artifact-sha256", default="")
+    route.add_argument(
+        "--lexicon-artifact-sha256",
+        default="",
+        help="legacy single-lexicon hash; retained for replay compatibility only",
+    )
+    route.add_argument(
+        "--trd-epistemic-lexicon-artifact-sha256",
+        default="",
+        help="hash of the 16-phrase TRD onset lexicon artifact",
+    )
+    route.add_argument(
+        "--relay-single-token-lexicon-artifact-sha256",
+        default="",
+        help="hash of the strict single-token Relay lexicon artifact",
+    )
     route.add_argument(
         "--reflection-token-ids",
         default="",
-        help="comma-separated tokenizer-specific onset IDs bound into a calibrated artifact",
+        help="legacy comma-separated reflection IDs; cannot make an artifact production-ready",
+    )
+    route.add_argument(
+        "--trd-epistemic-token-ids",
+        default="",
+        help="comma-separated tokenizer-specific TRD onset IDs",
+    )
+    route.add_argument(
+        "--relay-single-token-ids",
+        default="",
+        help="comma-separated strict single-token Relay trigger IDs",
     )
     route.add_argument(
         "--require-production-metadata",
@@ -87,15 +128,15 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _parse_token_ids(value: str) -> List[int]:
+def _parse_token_ids(value: str, field_name: str) -> List[int]:
     if not value.strip():
         return []
     try:
         token_ids = [int(item.strip()) for item in value.split(",") if item.strip()]
     except ValueError as exc:
-        raise ValueError("reflection-token-ids must be comma-separated integers") from exc
+        raise ValueError(f"{field_name} must be comma-separated integers") from exc
     if not token_ids or any(token_id < 0 for token_id in token_ids):
-        raise ValueError("reflection-token-ids must contain non-negative integers")
+        raise ValueError(f"{field_name} must contain non-negative integers")
     return token_ids
 
 
@@ -157,12 +198,22 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not paths:
             print(f"no JSON configs found in {args.config_dir}", file=sys.stderr)
             return 2
-        errors = validate_config_paths(paths)
+        errors = validate_config_paths(paths, run_ready=args.run_ready)
+        lock_path = args.lock or args.config_dir.parent / "upstreams.lock.json"
+        if lock_path.is_file():
+            payloads = []
+            for path in paths:
+                try:
+                    payloads.append(load_config(path))
+                except (OSError, json.JSONDecodeError, ValueError):
+                    continue
+            errors.extend(validate_upstreams_lock(lock_path, payloads))
         if errors:
             for error in errors:
                 print(error, file=sys.stderr)
             return 1
-        print(f"validated {len(paths)} experiment configs")
+        mode = "run-ready" if args.run_ready else "preregistration"
+        print(f"validated {len(paths)} experiment configs ({mode} mode)")
         return 0
     if args.command == "route-jsonl":
         if args.threshold_artifact:
@@ -209,7 +260,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                 normalization_low=normalization_low,
                 normalization_high=normalization_high,
                 lexicon_artifact_sha256=args.lexicon_artifact_sha256,
-                reflection_token_ids=_parse_token_ids(args.reflection_token_ids),
+                trd_epistemic_lexicon_artifact_sha256=args.trd_epistemic_lexicon_artifact_sha256,
+                relay_single_token_lexicon_artifact_sha256=args.relay_single_token_lexicon_artifact_sha256,
+                reflection_token_ids=_parse_token_ids(
+                    args.reflection_token_ids, "reflection-token-ids"
+                ),
+                trd_epistemic_token_ids=_parse_token_ids(
+                    args.trd_epistemic_token_ids, "trd-epistemic-token-ids"
+                ),
+                relay_single_token_ids=_parse_token_ids(
+                    args.relay_single_token_ids, "relay-single-token-ids"
+                ),
                 frozen_scale=scale,
             )
         records = apply_frozen_scale(_raw_records(args.input), scale)
@@ -237,6 +298,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 {
                     **asdict(decision),
                     "action": decision.action.value,
+                    "requested_action": decision.action.value,
+                    "decision_stage": "requested_pre_gate",
                     "threshold_artifact_sha256": thresholds.artifact_sha256,
                 }
                 for decision in decisions

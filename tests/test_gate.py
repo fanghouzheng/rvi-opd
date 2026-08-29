@@ -11,6 +11,20 @@ from rvi_opd.models import Action
 
 
 class GateTests(unittest.TestCase):
+    @staticmethod
+    def _production_joint_artifact() -> FrozenJointGateArtifact:
+        return FrozenJointGateArtifact(
+            s2_drop_null_mean=0.0,
+            s2_drop_null_std=0.1,
+            agreement_gain_null_mean=0.0,
+            agreement_gain_null_std=0.1,
+            max_stat_q95=2.0,
+            record_count=100,
+            calibration_split_sha256="a" * 64,
+            threshold_artifact_sha256="b" * 64,
+            code_revision="c" * 40,
+        )
+
     def test_accepts_s2_drop(self) -> None:
         decision = evaluate_intervention_gate(
             [0.010] * 4,
@@ -55,6 +69,10 @@ class GateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             GateConfig(min_rollouts=0)
         with self.assertRaises(ValueError):
+            GateConfig(min_s2_drop=True)
+        with self.assertRaises(ValueError):
+            GateConfig(min_teacher_preferred_gain=False)
+        with self.assertRaises(ValueError):
             GateConfig(min_s2_drop=float("nan"))
         with self.assertRaises(ValueError):
             evaluate_intervention_gate(
@@ -65,14 +83,7 @@ class GateTests(unittest.TestCase):
             )
 
     def test_joint_max_gate_uses_one_frozen_event_threshold(self) -> None:
-        artifact = FrozenJointGateArtifact(
-            s2_drop_null_mean=0.0,
-            s2_drop_null_std=0.1,
-            agreement_gain_null_mean=0.0,
-            agreement_gain_null_std=0.1,
-            max_stat_q95=2.0,
-            record_count=100,
-        )
+        artifact = self._production_joint_artifact()
         accepted = evaluate_joint_intervention_gate(
             [0.8] * 4,
             [0.5] * 4,
@@ -92,6 +103,42 @@ class GateTests(unittest.TestCase):
         self.assertAlmostEqual(accepted.gate_statistic, 3.0)
         self.assertFalse(rejected.accepted)
         self.assertEqual(rejected.effective_action, Action.REPAIR)
+
+    def test_joint_gate_rejects_wrong_rollout_count_and_unfrozen_artifact(self) -> None:
+        artifact = self._production_joint_artifact()
+        with self.assertRaisesRegex(ValueError, "exactly 4"):
+            evaluate_joint_intervention_gate(
+                [0.8] * 5,
+                [0.5] * 5,
+                [0.2] * 5,
+                [0.2] * 5,
+                artifact,
+            )
+        with self.assertRaisesRegex(ValueError, "production|artifact needs"):
+            evaluate_joint_intervention_gate(
+                [0.8] * 4,
+                [0.5] * 4,
+                [0.2] * 4,
+                [0.2] * 4,
+                FrozenJointGateArtifact(
+                    s2_drop_null_mean=0.0,
+                    s2_drop_null_std=0.1,
+                    agreement_gain_null_mean=0.0,
+                    agreement_gain_null_std=0.1,
+                    max_stat_q95=2.0,
+                    record_count=100,
+                ),
+            )
+        with self.assertRaisesRegex(ValueError, "calibration_split_sha256"):
+            FrozenJointGateArtifact(
+                s2_drop_null_mean=0.0,
+                s2_drop_null_std=0.1,
+                agreement_gain_null_mean=0.0,
+                agreement_gain_null_std=0.1,
+                max_stat_q95=2.0,
+                record_count=100,
+                calibration_split_sha256=None,  # type: ignore[arg-type]
+            )
 
     def test_joint_gate_artifact_fit_hash_and_production_metadata(self) -> None:
         artifact = fit_joint_gate_artifact(

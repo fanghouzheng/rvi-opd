@@ -8,6 +8,13 @@ class ContextContractTests(unittest.TestCase):
         self.assertNotEqual(context_hash([1, 2], "a"), context_hash([1, 3], "a"))
         self.assertNotEqual(context_hash([1, 2], "a"), context_hash([1, 2], "b"))
 
+    def test_hash_rejects_token_id_coercion(self) -> None:
+        for token_ids in ([1.0, 2], ["1", 2], [True, 2], [-1, 2], "12"):
+            with self.subTest(token_ids=token_ids), self.assertRaises(ValueError):
+                context_hash(token_ids, "tokenizer")
+        with self.assertRaises(ValueError):
+            context_hash([1, 2], "")
+
     def test_detached_contract(self) -> None:
         assert_detached_contract([1, 2], [1, 2], [1, 2, 9], "tok")
         with self.assertRaises(AssertionError):

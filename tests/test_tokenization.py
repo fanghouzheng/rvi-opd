@@ -49,6 +49,40 @@ class TokenizationTests(unittest.TestCase):
                 include_lowercase=False,
             )
 
+    def test_relay_single_token_mode_drops_multitoken_variants(self) -> None:
+        table = {
+            "Wait": [10],
+            " Wait": [20],
+            "wait": [10],
+            " wait": [20, 99],
+        }
+        artifact = build_lexicon_artifact(
+            "relay",
+            ["Wait"],
+            table.__getitem__,
+            tokenizer_revision="abc",
+            tokenizer_sha256="tokenizer-hash",
+            vocabulary_sha256="def",
+            include_lowercase=True,
+            single_token_only=True,
+        )
+        self.assertTrue(artifact.single_token_only)
+        self.assertNotIn(" wait", artifact.token_sequences)
+        self.assertEqual(artifact.first_subword_ids, (10, 20))
+
+    def test_single_token_mode_fails_when_every_variant_is_multitoken(self) -> None:
+        with self.assertRaises(ValueError):
+            build_lexicon_artifact(
+                "relay",
+                ["Wait"],
+                lambda _: [1, 2],
+                "rev",
+                "tokenizer-hash",
+                "vocab",
+                include_lowercase=False,
+                single_token_only=True,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

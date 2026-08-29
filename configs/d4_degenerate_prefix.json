@@ -1,5 +1,8 @@
 {
   "id": "D4",
+  "matrix_revision": "2026-08-01",
+  "citation_cutoff": "2026-08-01",
+  "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
   "question": "Can a repetition bypass recover failures that are invisible to both s1 and s2?",
   "split": "double_low_s1_s2_repetition_challenge_bank",
   "sample": {
@@ -18,8 +21,18 @@
   "bypass_signals": [
     "sliding_fourgram_repetition_rate",
     "unique_token_ratio",
-    "length_inflation"
+    "length_inflation",
+    "missing_box_rate",
+    "entropy",
+    "avg_at_k_diagnostic",
+    "pass_at_k_descriptive"
   ],
+  "signal_definitions": {
+    "sliding_window_tokens": 4,
+    "probe_tokens": 64,
+    "avg_at_k_is_not_pass_at_k": true,
+    "all_thresholds_frozen_before_challenge_outcomes": true
+  },
   "challenge_selection": {
     "double_low": "s1_at_or_below_global_frozen_q25_and_s2_at_or_below_global_frozen_q25",
     "repetition_trigger": "any_frozen_D4_threshold_on_sliding_fourgram_repetition_unique_token_ratio_or_length_inflation",
@@ -31,7 +44,14 @@
     "definition": "teacher_probe_does_not_continue_the_detected_repeating_ngram_and_its_fourgram_repetition_rate_is_below_the_frozen_D4_escape_threshold",
     "outcome_blind": "flag_is_computed_before_assigned_action_and_without_verifier_or_human_outcome"
   },
-  "route": "intervene_only_when_frozen_teacher_alternative_direction_flag_is_true_else_discard",
+  "route": "intervene_only_when_frozen_teacher_alternative_direction_flag_is_true_and_intervention_budget_is_available_else_discard",
+  "assignment": {
+    "unit": "isolated_frozen_prefix_state",
+    "randomized_arms": ["core_router", "router_plus_repetition_bypass", "random_budget_matched_intervention", "discard_all_double_low"],
+    "block_keys": ["problem_id", "difficulty_bin", "prefix_position_stratum", "repetition_severity_bin"],
+    "seed": 20260828,
+    "analysis": "requested_arm_ITT_with_problem_clustered_inference"
+  },
   "primary_endpoints": [
     "verified_failure_recall",
     "loop_escape_rate",

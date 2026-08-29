@@ -12,7 +12,7 @@ Repair-vs-Intervene On-Policy Distillation 的可审计实验仓库。
 - front-loading、有效 trigger cooldown、`M` 上限和实际 bridge token 配额。
 - 验收门的 D1 frozen joint max-statistic artifact/evaluator、paired probe、失败回滚及“失败成本不退款”账本。
 - problem-cluster paired bootstrap、difference-in-differences、Holm 校正。
-- D0–D5、E1、E2 和 A1–A10 的机器可读实验配置。
+- D0–D5、E1、E2 和 A1–A8 的机器可读实验配置。
 - 无第三方运行时依赖的 CI/smoke 路径。
 
 ## 快速开始
@@ -31,6 +31,11 @@ make smoke
 
 smoke 产物位于 `runs/smoke/manifest.json` 和 `runs/smoke/report.json`，`runs/` 默认不提交。
 
+`make validate` 检查当前预注册矩阵；真正启动 GPU/评测前还必须运行
+`rvi-opd validate-config --config-dir configs --run-ready`。后者会拒绝尚未冻结的
+template、rubric manifest 等 SHA256 占位符；因此仓库刚 clone 下来时预期不会通过，
+需先在 C0/W0 生成并回填对应工件，而不能用任意字符串跳过。
+
 ## 科学执行顺序
 
 ```text
@@ -40,7 +45,7 @@ smoke 产物位于 `runs/smoke/manifest.json` 和 `runs/smoke/report.json`，`ru
         ↓
  D2 paired continuation（W1）
         ↓ 仅当 W1 通过
- D0 2×2×2 + D3 detached + A2 shuffled
+ D0 2×2（s2 高/低预设子群）+ D3 detached + A2 shuffled
         ↓
  D4/D5 边界实验
         ↓
@@ -49,7 +54,7 @@ smoke 产物位于 `runs/smoke/manifest.json` 和 `runs/smoke/report.json`，`ru
 
 最关键的四个 confirmatory hypothesis 是：
 
-1. D0 的 `action × signal type × s2 band` interaction 为正。
+1. D0 的 forced-action ITT 在 `D^L`/`D^I` 两个预设 signal strata 间存在正的效应异质性（`Delta2`）；signal strata 与 s2 高/低都不是随机化因子。
 2. D2 中 repair 能改善被修位置的 KL，但 downstream s2 在预注册等价界内不变；bridge 同时改善 s2 与 verifier。
 3. D3 中 normal bridge 优于使用相同 teacher leg、但不把它放进后续 KV/context 的 detached bridge。
 4. RvI 优于保持动作数、位置、bridge 长度和成本不变的 A2 action-shuffled 对照。
@@ -79,7 +84,9 @@ examples/                不含真实 benchmark 内容的 synthetic schema 示�
 
 ## 重要边界
 
-- `Qwen3-1.7B-Non-Thinking` 不是单独 checkpoint；E1 使用 `Qwen/Qwen3-1.7B` 并锁定 `enable_thinking=false` 模板。
+- `Qwen3-1.7B-Non-Thinking` 不是单独 checkpoint；E1 使用 `Qwen/Qwen3-1.7B`，并通过项目自有 `rvi_opd_non_thinking_v1` serializer 固定非思考格式（不会把原生 `enable_thinking=false` 参数当作跨模型模板）。
+- E1 主表固定七个基准（AIME24/25/26、AMC23、HMMT-Feb26、MATH500、OlympiadBench）；E2 使用 `Qwen/Qwen3-4B-Instruct-2507 → Qwen/Qwen3-0.6B`，HealthBench Full/Hard 只作评测。
+- 主路由的 `s1/s2` 阈值固定为域内 D1 的 global q80；q25/q75 只定义 D0 signal cells 与 low/high 分析子群。
 - TRD 报告的 epistemic mass 数值来自其特定 OPSD 诊断，不能当作本项目跨模型固定阈值；本项目只在 D1 calibration split 上定标。
 - HealthBench Full 和 Hard 重叠，绝不按 6,000 个独立样本合并；仓库也不提交或打印任何 HealthBench 示例。
 - DAPO-Math-17K 必须按规范化题目去重并冻结 manifest，不能信任下载后的物理行数。

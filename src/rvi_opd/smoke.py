@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Dict, List
 
@@ -10,7 +10,7 @@ from .io import atomic_write_json
 from .models import CostVector, RawStateSignal
 from .router import action_counts, calibrate_thresholds, route_batch
 from .signals import apply_frozen_scale, fit_frozen_scale
-from .stats import paired_cluster_bootstrap, three_way_action_interaction
+from .stats import difference_in_differences, paired_cluster_bootstrap
 
 
 def _synthetic_states() -> List[RawStateSignal]:
@@ -28,7 +28,19 @@ def _synthetic_states() -> List[RawStateSignal]:
         ("loop-1", "p7", "t7", 9, 0.08, 0.48, 0.0006, 0.92, 0.0),
         ("gate-fail-1", "p8", "t8", 2, 1.25, 0.10, 0.0110, 0.04, 0.1),
     ]
-    return [RawStateSignal(*row) for row in rows]
+    states = [RawStateSignal(*row) for row in rows]
+    intervention_eligible = {"failed-1", "failed-2", "gate-fail-1"}
+    return [
+        replace(
+            state,
+            relay_phi_eligible=True,
+            intervention_budget_available=True,
+            intervention_cooldown_available=True,
+        )
+        if state.state_id in intervention_eligible
+        else state
+        for state in states
+    ]
 
 
 def run_smoke(output_dir: Path) -> Dict[str, object]:
@@ -128,15 +140,11 @@ def run_smoke(output_dir: Path) -> Dict[str, object]:
             "note": "Inserted/generated teacher tokens are mechanism descriptors, not matchable repair costs.",
         },
         "paired_bootstrap": asdict(bootstrap),
-        "d0_three_way_interaction_fixture": three_way_action_interaction(
-            dl_low_repair=0.62,
-            dl_low_intervene=0.54,
-            dl_high_repair=0.55,
-            dl_high_intervene=0.55,
-            di_low_repair=0.60,
-            di_low_intervene=0.60,
-            di_high_repair=0.20,
-            di_high_intervene=0.74,
+        "d0_difference_in_differences_fixture": difference_in_differences(
+            dl_repair=0.62,
+            dl_intervene=0.54,
+            di_repair=0.20,
+            di_intervene=0.74,
         ),
     }
     atomic_write_json(output_dir / "report.json", report)

@@ -6,7 +6,7 @@ import math
 import re
 from dataclasses import asdict, dataclass, fields
 from statistics import mean, pstdev
-from typing import Dict, Mapping, Sequence, Tuple
+from typing import Dict, Mapping, Optional, Sequence, Tuple
 
 from .models import Action, GateDecision
 from .signals import quantile
@@ -27,7 +27,11 @@ class GateConfig:
             raise ValueError("min_rollouts must be a positive integer")
         for name in ("min_s2_drop", "min_teacher_preferred_gain"):
             value = getattr(self, name)
-            if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+            ):
                 raise ValueError(f"{name} must be finite and non-negative")
             if value < 0:
                 raise ValueError(f"{name} must be finite and non-negative")
@@ -43,11 +47,13 @@ class FrozenJointGateArtifact:
     agreement_gain_null_std: float
     max_stat_q95: float
     record_count: int
+    probe_rollouts_per_event: int = 4
+    aggregation: str = "paired_arithmetic_mean"
     null_quantile: float = 0.95
     calibration_split_sha256: str = ""
     threshold_artifact_sha256: str = ""
     code_revision: str = ""
-    schema_version: str = "rvi-joint-gate-v1"
+    schema_version: str = "rvi-joint-gate-v2"
 
     def __post_init__(self) -> None:
         for name in (
@@ -76,8 +82,23 @@ class FrozenJointGateArtifact:
             or self.record_count < 2
         ):
             raise ValueError("joint-gate calibration needs at least two null records")
-        if self.schema_version != "rvi-joint-gate-v1":
+        if (
+            isinstance(self.probe_rollouts_per_event, bool)
+            or not isinstance(self.probe_rollouts_per_event, int)
+            or self.probe_rollouts_per_event <= 0
+        ):
+            raise ValueError("probe_rollouts_per_event must be a positive integer")
+        if self.aggregation != "paired_arithmetic_mean":
+            raise ValueError("unsupported joint-gate probe aggregation")
+        if self.schema_version != "rvi-joint-gate-v2":
             raise ValueError("unsupported joint-gate schema version")
+        for name in (
+            "calibration_split_sha256",
+            "threshold_artifact_sha256",
+            "code_revision",
+        ):
+            if not isinstance(getattr(self, name), str):
+                raise ValueError(f"{name} must be a string")
 
     def _unsigned_payload(self) -> Dict[str, object]:
         return asdict(self)
@@ -93,6 +114,8 @@ class FrozenJointGateArtifact:
     def production_ready(self) -> bool:
         return bool(
             self.null_quantile == 0.95
+            and self.probe_rollouts_per_event == 4
+            and self.aggregation == "paired_arithmetic_mean"
             and re.fullmatch(r"[0-9a-f]{64}", self.calibration_split_sha256)
             and re.fullmatch(r"[0-9a-f]{64}", self.threshold_artifact_sha256)
             and re.fullmatch(r"[0-9a-f]{40}", self.code_revision)
@@ -102,7 +125,7 @@ class FrozenJointGateArtifact:
         if not self.production_ready:
             raise ValueError(
                 "joint-gate artifact needs calibration/threshold SHA256 hashes and a "
-                "40-hex code revision"
+                "40-hex code revision, plus the frozen four-rollout mean contract"
             )
 
     def to_dict(self) -> Dict[str, object]:
@@ -135,6 +158,8 @@ def fit_joint_gate_artifact(
     calibration_split_sha256: str = "",
     threshold_artifact_sha256: str = "",
     code_revision: str = "",
+    probe_rollouts_per_event: int = 4,
+    aggregation: str = "paired_arithmetic_mean",
 ) -> FrozenJointGateArtifact:
     """Fit a joint max-statistic null from paired ineffective/random bridges."""
 
@@ -171,6 +196,8 @@ def fit_joint_gate_artifact(
         agreement_gain_null_std=agreement_scale,
         max_stat_q95=quantile(max_statistics, quantile_level),
         record_count=len(null_s2_drops),
+        probe_rollouts_per_event=probe_rollouts_per_event,
+        aggregation=aggregation,
         null_quantile=quantile_level,
         calibration_split_sha256=calibration_split_sha256,
         threshold_artifact_sha256=threshold_artifact_sha256,
@@ -184,6 +211,7 @@ def _summarize_paired_probes(
     agreement_before: Sequence[float],
     agreement_after: Sequence[float],
     min_rollouts: int,
+    require_exact_count: bool = False,
 ) -> Tuple[float, float, float, float, float, float]:
     lengths = {
         len(s2_before),
@@ -194,7 +222,11 @@ def _summarize_paired_probes(
     if len(lengths) != 1:
         raise ValueError("gate probes must be paired and have equal lengths")
     sample_count = next(iter(lengths))
-    if sample_count < min_rollouts:
+    if require_exact_count and sample_count != min_rollouts:
+        raise ValueError(
+            f"gate needs exactly {min_rollouts} paired rollouts; got {sample_count}"
+        )
+    if not require_exact_count and sample_count < min_rollouts:
         raise ValueError(f"gate needs at least {min_rollouts} paired rollouts; got {sample_count}")
     values = [*s2_before, *s2_after, *agreement_before, *agreement_after]
     if any(
@@ -225,12 +257,27 @@ def evaluate_joint_intervention_gate(
     agreement_before: Sequence[float],
     agreement_after: Sequence[float],
     artifact: FrozenJointGateArtifact,
-    min_rollouts: int = 4,
+    min_rollouts: Optional[int] = None,
 ) -> GateDecision:
-    """Production gate: one test against the frozen joint max-statistic q95."""
+    """Production gate: ``s2`` drop OR preferred-gain under one joint-null q95.
 
-    if isinstance(min_rollouts, bool) or not isinstance(min_rollouts, int) or min_rollouts <= 0:
-        raise ValueError("min_rollouts must be a positive integer")
+    The OR is represented by a single maximum statistic and a single frozen
+    null quantile.  It is intentionally not two marginal q95 tests joined by
+    an uncorrected OR.
+    """
+
+    artifact.assert_production_ready()
+    if min_rollouts is not None:
+        if (
+            isinstance(min_rollouts, bool)
+            or not isinstance(min_rollouts, int)
+            or min_rollouts <= 0
+        ):
+            raise ValueError("min_rollouts must be a positive integer")
+        if min_rollouts != artifact.probe_rollouts_per_event:
+            raise ValueError(
+                "runtime rollout count cannot override the frozen joint-gate artifact"
+            )
     (
         before_s2,
         after_s2,
@@ -243,7 +290,8 @@ def evaluate_joint_intervention_gate(
         s2_after,
         agreement_before,
         agreement_after,
-        min_rollouts,
+        artifact.probe_rollouts_per_event,
+        require_exact_count=True,
     )
     statistic = max(
         (s2_drop - artifact.s2_drop_null_mean) / artifact.s2_drop_null_std,
@@ -262,9 +310,9 @@ def evaluate_joint_intervention_gate(
         teacher_preferred_after=after_agreement,
         teacher_preferred_gain=agreement_gain,
         reason=(
-            "accepted_joint_max_statistic"
+            "accepted_s2_or_teacher_preferred_joint_max_statistic"
             if accepted
-            else "rollback_joint_max_statistic_below_frozen_q95"
+            else "rollback_s2_or_teacher_preferred_joint_max_statistic_below_frozen_q95"
         ),
         gate_mode="joint_max_statistic",
         gate_statistic=statistic,

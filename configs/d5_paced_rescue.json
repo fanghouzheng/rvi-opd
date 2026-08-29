@@ -1,5 +1,8 @@
 {
   "id": "D5",
+  "matrix_revision": "2026-08-01",
+  "citation_cutoff": "2026-08-01",
+  "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
   "question": "Can state intervention rescue prompts that PACED gives zero weight because the estimated pass rate is zero?",
   "split": "training_prompts_selected_by_zero_of_eight_rollouts_then_confirmed_on_independent_rollouts",
   "arms": [
@@ -18,6 +21,20 @@
     "all_four_seed_sets_are_disjoint": true,
     "rollouts_are_pure_student_without_teacher_tokens": true
   },
+  "selection_artifact": {
+    "schema_version": "rvi-d5-selection-v1",
+    "required_fields": [
+      "prompt_cluster_id",
+      "selection_seed_set",
+      "confirmation_seed_set",
+      "action_seed_set",
+      "evaluation_seed_set",
+      "candidate_state_id",
+      "candidate_manifest_sha256"
+    ],
+    "seed_sets_must_be_pairwise_disjoint": true,
+    "selection_is_frozen_before_action_assignment": true
+  },
   "sample_size": {
     "minimum_confirmed_prompt_clusters_with_a_frozen_phi_positive_candidate": 200,
     "may_increase_only_from_blinded_rescue_variance_and_cluster_ICC_before_arm_labels_are_unblinded": true
@@ -27,9 +44,14 @@
     "jeffreys": "p_tilde=(k+0.5)/(K+1)_and_w=p_tilde_times_one_minus_p_tilde_with_K=8",
     "boundary_note": "canonical_PACED_assigns_exactly_zero_weight_when_k=0"
   },
+  "estimators": {
+    "rescue_at_32": "paired_prompt_cluster_indicator_pass_at_32_after_action_minus_before_action",
+    "arm_comparison": "prompt_cluster_paired_bootstrap_with_simultaneous_Holm_adjustment",
+    "zero_gradient_sham": "execute_and_log_a_zero_gradient_optimizer_step_for_canonical_zero_weight"
+  },
   "one_cycle_schedule": {
     "assignment_unit": "prompt_cluster",
-    "action_slot": "one_preregistered_noop_repair_random_bridge_or_RvI_action_before_reestimation",
+    "action_slot": "one_preregistered_canonical_zero_weight_noop_Jeffreys_weight_only_repair_random_bridge_or_RvI_action_before_reestimation",
     "optimizer_batches_and_steps": "identical_across_arms; canonical_zero_weight_uses_a_logged_zero_gradient_sham_step",
     "student_token_budget": "identical_across_arms",
     "teacher_compute": "not_claimed_matched; report_teacher_generated_scored_tokens_and_gpu_seconds_and_compare_Pareto",

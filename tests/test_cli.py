@@ -1,7 +1,9 @@
 import hashlib
+import io
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 
 from rvi_opd.cli import _ledger, _raw_records, main
@@ -23,10 +25,6 @@ class CliTests(unittest.TestCase):
                     str(self.repo / "examples/states_to_route.jsonl"),
                     "--output",
                     str(output),
-                    "--normalization-low",
-                    "0.0",
-                    "--normalization-high",
-                    "1.0",
                     "--teacher-revision",
                     "a" * 40,
                     "--student-revision",
@@ -37,10 +35,14 @@ class CliTests(unittest.TestCase):
                     "f" * 64,
                     "--code-revision",
                     "1" * 40,
-                    "--lexicon-artifact-sha256",
+                    "--trd-epistemic-lexicon-artifact-sha256",
+                    "d" * 64,
+                    "--relay-single-token-lexicon-artifact-sha256",
                     "e" * 64,
-                    "--reflection-token-ids",
+                    "--trd-epistemic-token-ids",
                     "20,10,20",
+                    "--relay-single-token-ids",
+                    "40,30,40",
                     "--require-production-metadata",
                 ]
             )
@@ -49,21 +51,27 @@ class CliTests(unittest.TestCase):
             self.assertTrue(output.with_suffix(".thresholds.json").is_file())
             first_row = json.loads(output.read_text(encoding="utf-8").splitlines()[0])
             self.assertEqual(len(first_row["threshold_artifact_sha256"]), 64)
+            self.assertEqual(first_row["decision_stage"], "requested_pre_gate")
+            self.assertEqual(first_row["requested_action"], first_row["action"])
+            self.assertNotIn("effective_action", first_row)
             threshold_payload = json.loads(
                 output.with_suffix(".thresholds.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(threshold_payload["normalization_low"], 0.0)
-            self.assertEqual(threshold_payload["normalization_high"], 1.0)
+            self.assertEqual(threshold_payload["normalization_low"], 0.05)
+            self.assertEqual(threshold_payload["normalization_high"], 0.95)
             self.assertEqual(len(threshold_payload["scale_artifact_sha256"]), 64)
-            self.assertEqual(threshold_payload["divergence_q_low"], 0.1)
-            self.assertEqual(threshold_payload["divergence_q_high"], 1.3)
-            self.assertEqual(threshold_payload["compatibility_q_low"], 0.1)
-            self.assertEqual(threshold_payload["compatibility_q_high"], 0.95)
+            self.assertAlmostEqual(threshold_payload["divergence_q_low"], 0.11)
+            self.assertAlmostEqual(threshold_payload["divergence_q_high"], 1.28)
+            self.assertAlmostEqual(threshold_payload["compatibility_q_low"], 0.17)
+            self.assertAlmostEqual(threshold_payload["compatibility_q_high"], 0.90)
             self.assertEqual(threshold_payload["vocabulary_sha256"], "f" * 64)
             self.assertEqual(threshold_payload["code_revision"], "1" * 40)
             self.assertTrue(threshold_payload["production_ready"])
             self.assertEqual(threshold_payload["signal_schema_version"], "rvi-signals-v3")
-            self.assertEqual(threshold_payload["reflection_token_ids"], [10, 20])
+            self.assertEqual(threshold_payload["trd_epistemic_token_ids"], [10, 20])
+            self.assertEqual(threshold_payload["relay_single_token_ids"], [30, 40])
+            self.assertEqual(threshold_payload["s1_quantile"], 0.8)
+            self.assertEqual(threshold_payload["s2_quantile"], 0.8)
             calibration_bytes = (self.repo / "examples/calibration_states.jsonl").read_bytes()
             self.assertEqual(
                 threshold_payload["calibration_split_sha256"],
@@ -85,6 +93,24 @@ class CliTests(unittest.TestCase):
             )
             self.assertEqual(replay_status, 0)
             self.assertEqual(output.read_text(encoding="utf-8"), replay.read_text(encoding="utf-8"))
+
+    def test_validate_config_exposes_preregistration_and_run_ready_modes(self) -> None:
+        self.assertEqual(
+            main(["validate-config", "--config-dir", str(self.repo / "configs")]),
+            0,
+        )
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            status = main(
+                [
+                    "validate-config",
+                    "--config-dir",
+                    str(self.repo / "configs"),
+                    "--run-ready",
+                ]
+            )
+        self.assertEqual(status, 1)
+        self.assertEqual(stderr.getvalue().count("is not run-ready"), 7)
 
     def test_route_replay_is_independent_of_batch_id_and_peers(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

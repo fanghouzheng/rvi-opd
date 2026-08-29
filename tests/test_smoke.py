@@ -22,7 +22,7 @@ class SmokeTests(unittest.TestCase):
                 report["thresholds"]["scale_artifact_sha256"],
             )
             self.assertIn("optimizer_steps", report["budget"]["match_on"])
-            self.assertIn("d0_three_way_interaction_fixture", report)
+            self.assertIn("d0_difference_in_differences_fixture", report)
 
 
 if __name__ == "__main__":

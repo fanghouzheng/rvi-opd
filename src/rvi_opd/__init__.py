@@ -1,6 +1,64 @@
 """Core, dependency-free contracts for RvI-OPD experiments."""
 
-from .models import Action, CostVector, RawStateSignal, StateSignal
+from .models import (
+    Action,
+    ActionAssignment,
+    CostVector,
+    RawStateSignal,
+    RouteDecision,
+    StateSignal,
+)
+from .prompting import (
+    CANONICAL_SERIALIZER_VERSION,
+    C0Artifact,
+    DEFAULT_SYSTEM_PROMPT,
+    E1_EVALUATION_PROFILE,
+    E1_TRAINING_PROFILE,
+    E2_EVALUATION_PROFILE,
+    E2_TRAINING_PROFILE,
+    MEDICAL_SYSTEM_PROMPT,
+    RenderedPrompt,
+    assert_c0_production_ready,
+    assert_context_budget,
+    assert_generation_request,
+    assert_no_unintended_thinking,
+    assert_strict_generation_contract,
+    assert_tokenizer_alignment,
+    build_c0_artifact,
+    build_generation_contract,
+    build_target_text,
+    supervision_mask,
+    render_non_thinking_prompt,
+)
+from .tokenization import build_relay_lexicon_artifact
 
-__all__ = ["Action", "CostVector", "RawStateSignal", "StateSignal"]
+__all__ = [
+    "Action",
+    "ActionAssignment",
+    "CostVector",
+    "RawStateSignal",
+    "StateSignal",
+    "RouteDecision",
+    "CANONICAL_SERIALIZER_VERSION",
+    "C0Artifact",
+    "DEFAULT_SYSTEM_PROMPT",
+    "E1_EVALUATION_PROFILE",
+    "E1_TRAINING_PROFILE",
+    "E2_EVALUATION_PROFILE",
+    "E2_TRAINING_PROFILE",
+    "MEDICAL_SYSTEM_PROMPT",
+    "RenderedPrompt",
+    "assert_c0_production_ready",
+    "assert_context_budget",
+    "assert_generation_request",
+    "assert_no_unintended_thinking",
+    "assert_strict_generation_contract",
+    "assert_tokenizer_alignment",
+    "build_c0_artifact",
+    "build_generation_contract",
+    "build_target_text",
+    "supervision_mask",
+    "render_non_thinking_prompt",
+    "build_relay_lexicon_artifact",
+]
 __version__ = "0.1.0"

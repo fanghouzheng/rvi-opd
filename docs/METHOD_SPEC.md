@@ -19,11 +19,13 @@ D^I = D_tilde * (1 - C_tilde)
 
 Those batch q05/q95 values describe states **within that batch only**; they are not portable decision thresholds. Production/replay routing loads one global pair of raw-`D` and raw-`C` q05/q95 anchors frozen on the D1 calibration split and applies that fixed transform to every later state, independent of inference-batch composition. `route-jsonl` binds the four anchors, quantile levels, vocabulary SHA-256 and code revision into a frozen-scale hash stored by the threshold artifact; replay reconstructs and verifies that scale solely from the artifact. Batch-wise decomposition remains a TA diagnostic and is never used by that routing command. Known prefix position `token_index/max_response_tokens` is reported in four bins as a stability diagnostic/covariate, not as multiple primary router thresholds. Realized or future response length is forbidden. Define `s1=max(D^L,D^I)` after the fixed transform; `s1` is disagreement eligibility, not literally an absorbability probability.
 
+The primary routing thresholds are the D1 global q80 values of s1 and s2. Separately, q25/q75 define low/high analysis bands and D0 signal-cell eligibility. These four band values are serialized for subgroup replay but never substituted for `tau1/tau2`; A5's q70/q75/q80 sweep is secondary to the frozen q80 primary run.
+
 The code implements the teacher-weighted forward direction `KL(T||S)`. Missing union logits are a data error: do not concatenate two truncated probability arrays and silently treat missing tokens as exact zero.
 
 ## 2. Prefix-damage signal
 
-`s2` is untempered teacher probability mass on tokenizer-specific first-subword IDs derived from the 16 onset phrases used by TRD:
+`s2` is untempered teacher probability mass on the tokenizer-specific set `E` of first-subword IDs derived from the 16 onset phrases used by TRD:
 
 ```text
 Wait, Actually, However, Alternatively, Oops, Wrong, Error, Incorrect,
@@ -38,10 +40,10 @@ This set is **not** Relay's handoff lexicon. Relay uses 13 bases—`Wait, But, H
 
 ```text
 if optional_repetition_bypass:
-    teacher_has_alternative -> intervene
+    teacher_has_alternative and intervention budget permits -> intervene
     otherwise -> discard
-elif optional_paced_zero_rescue and p_hat == 0:
-    intervene
+elif optional_paced_zero_rescue and p_hat == 0 and phi(c) == 1 and budget/cooldown permits:
+    propose intervene
 elif s2 >= tau2 and phi(c) == 1 and budget/cooldown permits:
     propose intervene
     paired gate accepts -> intervene
@@ -80,22 +82,24 @@ The teacher leg begins with that teacher global-argmax token, then generates up 
 
 ### Detached
 
-Generate/score the exact same teacher leg from the original prefix and apply the same Relay k1 RKL on the actual emitted relay token as normal intervention. Then delete every bridge KV, reset position IDs, and start a separate continuation pass from the original prefix. An implementation that merely stops gradients through retained bridge KV violates the contract.
+Generate/score the exact same teacher leg from the original prefix and apply the same Relay k1 RKL on the actual emitted relay token as normal intervention. Then delete every bridge KV, reset position IDs, and start a separate continuation pass from the original prefix. Teacher-leg tokens and scores must be bit-identical; student continuation lengths may differ after the context deletion and are reported separately. An implementation that merely stops gradients through retained bridge KV violates the contract.
 
 ## 5. Training-time acceptance gate
 
-For each proposal, use paired frozen-student continuations from base and bridge contexts. Let:
-
 The gate is part of the deployed/end-to-end RvI router and A4. It is disabled in randomized D0 and causal D3 so treatment assignment cannot be changed after randomization.
 
+For each proposal, use paired frozen-student continuations from base and bridge contexts. Define:
+
 ```text
-s2_residual = mean_t sum_{r in R} p_T(r | continuation_prefix_t)
+s2_residual = mean_t sum_{e in E} p_T(e | continuation_prefix_t)
 agree@K = mean_t 1[argmax(p_T) in TopK(p_S)]
 ```
 
-D1 obtains one global joint null distribution from ineffective/random bridges. Orient both improvements positively, standardize them with frozen null summaries, and define `G=max(z_s2_reduction,z_agree_gain)`. Accept only if `G` exceeds the global frozen q95 of the **joint max-statistic null**. Testing each metric against its own q95 and accepting their OR inflates event-wise false acceptance and violates the contract. Known prefix position is a diagnostic/prespecified covariate, not a set of primary gate cutoffs. The dependency-free core serializes and validates the joint artifact; the GPU adapter must use the joint evaluator, not the absolute-threshold OR retained only for synthetic smoke.
+D1 obtains one global joint null distribution from ineffective/random bridges. Each event uses exactly four paired probe rollouts and arithmetic-mean aggregation; both values are frozen in the gate artifact. Orient both improvements positively, standardize them with frozen null summaries, and define `G=max(z_s2_reduction,z_agree_gain)`. Accept only if `G` exceeds the global frozen q95 of the **joint max-statistic null**. Testing each metric against its own q95 and accepting their OR inflates event-wise false acceptance and violates the contract. Known prefix position is a diagnostic/prespecified covariate, not a set of primary gate cutoffs. The gate artifact binds the threshold-artifact hash in one direction; the threshold artifact never contains a gate hash, and the run manifest binds both artifact hashes. The dependency-free core serializes and validates the joint artifact; the GPU adapter must use the joint evaluator, not the absolute-threshold OR retained only for synthetic smoke.
 
 If rejected, `requested_action=intervene` and `effective_action=repair`. Generated bridge and gate-scoring costs remain in the ledger. Context must roll back bit-for-bit to the original hash before repair.
+
+The routing-only CLI stops before execution and gate evaluation: its records carry `decision_stage=requested_pre_gate` and `requested_action` only. An `effective_action` is legal only in the post-gate action event, so a dry route cannot be mistaken for an accepted intervention.
 
 ## 6. Cost vector and matching
 

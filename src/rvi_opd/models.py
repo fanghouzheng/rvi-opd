@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from typing import Dict, Optional
@@ -25,6 +26,34 @@ def _require_probability(instance: object, names: tuple[str, ...]) -> None:
             raise ValueError(f"{name} must be a finite probability in [0, 1]")
 
 
+def _validate_optional_state_metadata(instance: object) -> None:
+    """Validate audit metadata shared by raw, transformed and routed states."""
+
+    max_response_tokens = getattr(instance, "max_response_tokens", None)
+    token_index = getattr(instance, "token_index", 0)
+    if max_response_tokens is not None:
+        if (
+            isinstance(max_response_tokens, bool)
+            or not isinstance(max_response_tokens, int)
+            or max_response_tokens <= 0
+        ):
+            raise ValueError("max_response_tokens must be a positive integer when provided")
+        if token_index >= max_response_tokens:
+            raise ValueError("token_index must be smaller than max_response_tokens")
+    for name in ("difficulty_bin", "prefix_position_stratum", "s2_analysis_stratum"):
+        value = getattr(instance, name, "")
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{name} must be a non-empty string")
+    s2_stratum = getattr(instance, "s2_analysis_stratum", "unknown")
+    if s2_stratum not in {"low", "high", "middle", "unknown"}:
+        raise ValueError("s2_analysis_stratum must be low, high, middle, or unknown")
+    manifest = getattr(instance, "trigger_manifest_sha256", "")
+    if not isinstance(manifest, str):
+        raise ValueError("trigger_manifest_sha256 must be a string")
+    if manifest and not re.fullmatch(r"[0-9a-f]{64}", manifest):
+        raise ValueError("trigger_manifest_sha256 must be a 64-hex SHA256 when provided")
+
+
 class Action(str, Enum):
     REPAIR = "repair"
     INTERVENE = "intervene"
@@ -45,6 +74,14 @@ class RawStateSignal:
     p_hat: float = 1.0
     alternative_direction_available: bool = False
     batch_id: str = "default"
+    max_response_tokens: Optional[int] = None
+    difficulty_bin: str = "unknown"
+    prefix_position_stratum: str = "unknown"
+    s2_analysis_stratum: str = "unknown"
+    trigger_manifest_sha256: str = ""
+    relay_phi_eligible: bool = False
+    intervention_budget_available: bool = False
+    intervention_cooldown_available: bool = False
 
     def __post_init__(self) -> None:
         _require_nonempty_text(
@@ -68,6 +105,14 @@ class RawStateSignal:
         )
         if not isinstance(self.alternative_direction_available, bool):
             raise ValueError("alternative_direction_available must be boolean")
+        for name in (
+            "relay_phi_eligible",
+            "intervention_budget_available",
+            "intervention_cooldown_available",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise ValueError(f"{name} must be boolean")
+        _validate_optional_state_metadata(self)
 
 
 @dataclass(frozen=True)
@@ -87,6 +132,14 @@ class StateSignal:
     p_hat: float = 1.0
     alternative_direction_available: bool = False
     batch_id: str = "default"
+    max_response_tokens: Optional[int] = None
+    difficulty_bin: str = "unknown"
+    prefix_position_stratum: str = "unknown"
+    s2_analysis_stratum: str = "unknown"
+    trigger_manifest_sha256: str = ""
+    relay_phi_eligible: bool = False
+    intervention_budget_available: bool = False
+    intervention_cooldown_available: bool = False
 
     def __post_init__(self) -> None:
         _require_nonempty_text(
@@ -122,6 +175,14 @@ class StateSignal:
             raise ValueError("d_l + d_i must equal d_tilde")
         if not isinstance(self.alternative_direction_available, bool):
             raise ValueError("alternative_direction_available must be boolean")
+        for name in (
+            "relay_phi_eligible",
+            "intervention_budget_available",
+            "intervention_cooldown_available",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise ValueError(f"{name} must be boolean")
+        _validate_optional_state_metadata(self)
 
     @property
     def s1(self) -> float:
@@ -139,6 +200,14 @@ class RouteDecision:
     s1: float
     s2: float
     batch_id: str = "default"
+    max_response_tokens: Optional[int] = None
+    difficulty_bin: str = "unknown"
+    prefix_position_stratum: str = "unknown"
+    s2_analysis_stratum: str = "unknown"
+    trigger_manifest_sha256: str = ""
+    relay_phi_eligible: bool = False
+    intervention_budget_available: bool = False
+    intervention_cooldown_available: bool = False
 
     def __post_init__(self) -> None:
         _require_nonempty_text(
@@ -154,26 +223,101 @@ class RouteDecision:
         ):
             raise ValueError("token_index must be a non-negative integer")
         _require_probability(self, ("s1", "s2"))
+        for name in (
+            "relay_phi_eligible",
+            "intervention_budget_available",
+            "intervention_cooldown_available",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise ValueError(f"{name} must be boolean")
+        _validate_optional_state_metadata(self)
 
 
 @dataclass(frozen=True)
 class ActionAssignment:
-    """Action plus its inseparable A2 payload/cost bundle."""
+    """Requested/effective actions plus their inseparable A2 payload/cost bundle."""
 
     state_id: str
     block_id: str
-    action: Action
+    requested_action: Action
+    effective_action: Action
     bridge_token_length: int
     cost_signature: str
     payload_hash: str
+    gate_status: str
+    gate_artifact_sha256: str = ""
     source_state_id: str = ""
 
     def __post_init__(self) -> None:
-        if self.bridge_token_length < 0:
-            raise ValueError("bridge_token_length cannot be negative")
-        for name in ("state_id", "block_id", "cost_signature", "payload_hash"):
-            if not getattr(self, name):
-                raise ValueError(f"{name} must not be empty")
+        if (
+            isinstance(self.bridge_token_length, bool)
+            or not isinstance(self.bridge_token_length, int)
+            or self.bridge_token_length < 0
+        ):
+            raise ValueError("bridge_token_length must be a non-negative integer")
+        for name in (
+            "state_id",
+            "block_id",
+            "gate_status",
+        ):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} must be a non-empty string")
+        for name in ("cost_signature", "payload_hash"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+                raise ValueError(f"{name} must be a 64-hex SHA256")
+        if not isinstance(self.requested_action, Action) or not isinstance(
+            self.effective_action, Action
+        ):
+            raise ValueError("requested_action and effective_action must be Actions")
+        if self.gate_status not in {
+            "accepted",
+            "rejected",
+            "disabled",
+            "not_applicable",
+        }:
+            raise ValueError(
+                "gate_status must be accepted, rejected, disabled, or not_applicable"
+            )
+        if not isinstance(self.gate_artifact_sha256, str):
+            raise ValueError("gate_artifact_sha256 must be a string")
+        if self.gate_artifact_sha256 and not re.fullmatch(
+            r"[0-9a-f]{64}", self.gate_artifact_sha256
+        ):
+            raise ValueError("gate_artifact_sha256 must be a 64-hex SHA256 when provided")
+        if self.gate_status == "accepted":
+            if (
+                self.requested_action is not Action.INTERVENE
+                or self.effective_action is not Action.INTERVENE
+                or not self.gate_artifact_sha256
+            ):
+                raise ValueError(
+                    "accepted gate requires intervene/intervene actions and a gate artifact"
+                )
+        elif self.gate_status == "rejected":
+            if (
+                self.requested_action is not Action.INTERVENE
+                or self.effective_action is not Action.REPAIR
+                or not self.gate_artifact_sha256
+            ):
+                raise ValueError(
+                    "rejected gate requires intervene/repair actions and a gate artifact"
+                )
+        elif self.requested_action is not self.effective_action:
+            raise ValueError(
+                "requested/effective actions may differ only for a rejected gate"
+            )
+        if self.gate_status == "not_applicable" and self.requested_action is Action.INTERVENE:
+            raise ValueError("an intervene request must record accepted, rejected, or disabled gate")
+        if self.gate_status in {"disabled", "not_applicable"} and self.gate_artifact_sha256:
+            raise ValueError("disabled/not-applicable gates must not carry a gate artifact hash")
+        if not isinstance(self.source_state_id, str) or (
+            self.source_state_id and not self.source_state_id.strip()
+        ):
+            raise ValueError("source_state_id must be empty or a non-empty string")
+        if not self.source_state_id:
+            object.__setattr__(self, "source_state_id", self.state_id)
 
 
 @dataclass(frozen=True)

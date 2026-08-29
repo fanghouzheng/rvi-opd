@@ -1,5 +1,8 @@
 {
   "id": "D1",
+  "matrix_revision": "2026-08-01",
+  "citation_cutoff": "2026-08-01",
+  "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
   "question": "Are disagreement eligibility (s1) and prefix damage (s2) distinct, stable signals that predict different action benefits?",
   "split": "calibration_only_grouped_by_near_duplicate_cluster",
   "arms": [
@@ -10,6 +13,18 @@
   "signals": {
     "k_signal": 16,
     "batch_robust_normalization_quantiles": [0.05, 0.95],
+    "global_anchor_quantiles": {"low": 0.05, "high": 0.95},
+    "global_s1_band_quantiles": {"low": 0.25, "high": 0.75},
+    "global_s2_band_quantiles": {"low": 0.25, "high": 0.75},
+    "router_primary_quantiles": {"s1": 0.80, "s2": 0.80},
+    "realized_router_thresholds": {
+      "s1_low": "global_s1_q25",
+      "s1_high": "global_s1_q75",
+      "s2_low": "global_s2_q25",
+      "s2_high": "global_s2_q75",
+      "signal_cell_dl_top": "DL_q75_and_DL_gt_DI",
+      "signal_cell_di_top": "DI_q75_and_DI_gt_DL"
+    },
     "batch_normalized_dl_di_role": "TA_OPD_compatible_state_descriptor_and_diagnostic_only_not_a_cross_batch_router_threshold",
     "router_transform": "apply_one_global_D1_frozen_raw_D_and_C_q05_q95_transform_to_every_future_state_independent_of_inference_batch_composition",
     "prefix_position_strata": {
@@ -18,11 +33,18 @@
       "available_at_decision_time": true,
       "role": "stability_diagnostic_and_analysis_covariate_only_not_router_specific_thresholds"
     },
-    "state_bands": {"low": 0.25, "high": 0.75},
-    "router_threshold_scope": "global",
+    "router_threshold_scope": "global_frozen",
+    "calibration_estimator": "empirical_quantile_on_D1_calibration_rows_only",
+    "threshold_scope": {
+      "trajectory_diagnostic": "offline_rank_only",
+      "global_frozen_router": "one_raw_D_C_transform_and_one_global_state_band_artifact"
+    },
+    "matrix_threshold_interpretation": "trajectory_quantile_levels_are_calibrated_on_D1_and_realized_as_one_frozen_global_transform_for_online_causal_routing",
+    "per_trajectory_quantile_role": "offline_exploratory_relative_rank_diagnostic_only; never used for primary routing_or_ITT",
     "stability_diagnostics_by": ["known_prefix_position_stratum"],
     "forbidden_stratifier": "realized_or_future_response_length",
     "router_s1_definition": "max(frozen_scale_DL,frozen_scale_DI)",
+    "router_threshold_definition": "s1_threshold=global_s1_q80_and_s2_threshold=global_s2_q80; q25/q75_are_subgroup_and_signal-cell_boundaries_only",
     "epistemic_mass_temperature": 1.0
   },
   "primary_endpoints": [
@@ -41,14 +63,19 @@
     "improvements": ["base_minus_bridge_s2_residual_auc", "bridge_minus_base_agree_at_K"],
     "statistic": "maximum_of_the_two_null_standardized_positive_improvements",
     "threshold": "one_global_frozen_q95_of_the_joint_max_statistic_null",
-    "decision": "accept_only_when_observed_max_statistic_exceeds_the_global_q95",
-    "forbidden": "separate_metricwise_q95_tests_combined_with_OR_or_position_specific_primary_thresholds",
+    "decision": "accept_when_s2_residual_drop_or_teacher_preferred_gain_exceeds_one_global_joint_max_statistic_q95",
+    "decision_semantics": "OR_over_the_two_preregistered_improvements_with_joint_null_calibration",
+    "probe_rollouts_per_event": 4,
+    "probe_aggregation": "paired_arithmetic_mean",
+    "forbidden": "separate_uncorrected_metricwise_q95_tests_or_position_specific_primary_thresholds",
     "position_role": "diagnostic_and_prespecified_covariate_only"
   },
   "freeze_artifact": [
     "thresholds",
     "global_raw_D_and_C_q05_q95",
-    "global_state_band_q25_q75",
+    "global_s1_band_q25_q75",
+    "global_s2_band_q25_q75",
+    "global_router_s1_s2_q80_thresholds",
     "position_stratified_stability_report",
     "global_joint_gate_max_statistic_q95",
     "prefix_position_cut_points",
@@ -61,6 +88,57 @@
     "relay_single_token_lexicon_artifact_sha256",
     "code_git_sha"
   ],
+  "artifact_schema": {
+    "version": "rvi-d1-freeze-bundle-v3",
+    "threshold_artifact": {
+      "schema": "rvi-signals-v3",
+      "required_numeric_fields": [
+        "global_raw_D_q05",
+        "global_raw_D_q95",
+        "global_raw_C_q05",
+        "global_raw_C_q95",
+        "global_s1_q25",
+        "global_s1_q75",
+        "global_s2_q25",
+        "global_s2_q75",
+        "s1_threshold",
+        "s2_threshold",
+        "s1_quantile",
+        "s2_quantile"
+      ],
+      "required_hash_fields": [
+        "calibration_split_sha256",
+        "teacher_revision",
+        "student_revision",
+        "tokenizer_sha256",
+        "vocabulary_sha256",
+        "trd_epistemic_lexicon_artifact_sha256",
+        "relay_single_token_lexicon_artifact_sha256",
+        "code_git_sha"
+      ],
+      "required_token_id_fields": [
+        "trd_epistemic_token_ids",
+        "relay_single_token_ids"
+      ],
+      "forbidden_field": "gate_artifact_sha256"
+    },
+    "joint_gate_artifact": {
+      "schema": "rvi-joint-gate-v2",
+      "required_fields": [
+        "global_joint_gate_max_stat_q95",
+        "probe_rollouts_per_event",
+        "aggregation",
+        "calibration_split_sha256",
+        "threshold_artifact_sha256",
+        "code_revision"
+      ],
+      "probe_rollouts_per_event": 4,
+      "aggregation": "paired_arithmetic_mean",
+      "one_way_binding": "joint_gate_artifact_binds_threshold_artifact_sha256; threshold_artifact_does_not_bind_gate_hash"
+    },
+    "run_manifest_requires_both_artifact_hashes": true,
+    "replay_must_be_read_only": true
+  },
   "audit_invariants": [
     "no_final_benchmark_prompt_in_calibration",
     "teacher_and_student_vocab_hash_equal",

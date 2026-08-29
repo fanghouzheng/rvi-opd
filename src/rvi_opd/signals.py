@@ -142,7 +142,11 @@ def _validate_distribution(distribution: Distribution, name: str) -> None:
     if not distribution:
         raise ValueError(f"{name} distribution is empty")
     if any(
-        (not math.isfinite(value)) or value < 0 or value > 1.0
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or (not math.isfinite(value))
+        or value < 0
+        or value > 1.0
         for value in distribution.values()
     ):
         raise ValueError(f"{name} distribution contains invalid probability")
@@ -155,9 +159,19 @@ def _validate_distribution(distribution: Distribution, name: str) -> None:
         )
 
 
+def _validate_complete_distribution(distribution: Distribution, name: str) -> None:
+    """Require a complete, normalized softmax for global-ranking predicates."""
+
+    _validate_distribution(distribution, name)
+    if not math.isclose(sum(distribution.values()), 1.0, rel_tol=0.0, abs_tol=1e-4):
+        raise ValueError(
+            f"{name} handoff distribution must be a complete full-softmax distribution"
+        )
+
+
 def _top_k(distribution: Distribution, k: int) -> List[Token]:
-    if k <= 0:
-        raise ValueError("k must be positive")
+    if isinstance(k, bool) or not isinstance(k, int) or k <= 0:
+        raise ValueError("k must be a positive integer")
     return [
         token
         for token, _ in sorted(
@@ -305,6 +319,14 @@ def _decompose_record(
         p_hat=record.p_hat,
         alternative_direction_available=record.alternative_direction_available,
         batch_id=record.batch_id,
+        max_response_tokens=record.max_response_tokens,
+        difficulty_bin=record.difficulty_bin,
+        prefix_position_stratum=record.prefix_position_stratum,
+        s2_analysis_stratum=record.s2_analysis_stratum,
+        trigger_manifest_sha256=record.trigger_manifest_sha256,
+        relay_phi_eligible=record.relay_phi_eligible,
+        intervention_budget_available=record.intervention_budget_available,
+        intervention_cooldown_available=record.intervention_cooldown_available,
     )
 
 
@@ -384,11 +406,34 @@ def handoff_trigger(
     student: Distribution,
     reflection_token_ids: Iterable[Token],
     k: int = 5,
+    *,
+    vocabulary_size: int,
 ) -> bool:
-    """Relay-style trigger: teacher top-1 reflects, student top-k does not."""
+    """Relay trigger from complete full-softmax probability mappings.
 
-    _validate_distribution(teacher, "teacher")
-    _validate_distribution(student, "student")
+    Gathered or truncated mappings are rejected even when teacher and student
+    happen to expose the same keys: they cannot certify a global argmax/top-k.
+    Backends that already compute global ranked IDs should use
+    :func:`handoff_trigger_from_ranked_ids` instead of materializing a full
+    vocabulary probability mapping.
+    """
+
+    _validate_complete_distribution(teacher, "teacher")
+    _validate_complete_distribution(student, "student")
+    if isinstance(k, bool) or not isinstance(k, int) or k <= 0:
+        raise ValueError("k must be a positive integer")
+    if (
+        isinstance(vocabulary_size, bool)
+        or not isinstance(vocabulary_size, int)
+        or vocabulary_size <= 0
+    ):
+        raise ValueError("vocabulary_size must be a positive integer")
+    if len(teacher) != vocabulary_size or len(student) != vocabulary_size:
+        raise ValueError(
+            "handoff distributions must expose exactly vocabulary_size entries"
+        )
+    if len(student) < k:
+        raise ValueError("student handoff distribution has fewer than k vocabulary entries")
     reflection = set(reflection_token_ids)
     if not reflection:
         raise ValueError("reflection_token_ids must not be empty")
@@ -407,3 +452,66 @@ def handoff_trigger(
     teacher_top = _top_k(teacher, 1)[0]
     student_top = set(_top_k(student, k))
     return teacher_top in reflection and not student_top.intersection(reflection)
+
+
+def handoff_trigger_from_ranked_ids(
+    teacher_global_argmax_id: int,
+    student_global_top_token_ids: Sequence[int],
+    reflection_token_ids: Iterable[int],
+    *,
+    k: int = 5,
+    teacher_vocabulary_sha256: str,
+    student_vocabulary_sha256: str,
+    vocabulary_size: int,
+) -> bool:
+    """Relay trigger from backend-certified global rankings.
+
+    The API names the ranking scope explicitly and binds both rankings to the
+    same frozen vocabulary.  It is the efficient production alternative to the
+    complete-probability API above.
+    """
+
+    if isinstance(k, bool) or not isinstance(k, int) or k <= 0:
+        raise ValueError("k must be a positive integer")
+    if (
+        not isinstance(vocabulary_size, int)
+        or isinstance(vocabulary_size, bool)
+        or vocabulary_size <= 0
+    ):
+        raise ValueError("vocabulary_size must be a positive integer")
+    for name, digest in (
+        ("teacher_vocabulary_sha256", teacher_vocabulary_sha256),
+        ("student_vocabulary_sha256", student_vocabulary_sha256),
+    ):
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError(f"{name} must be a 64-hex SHA256")
+    if teacher_vocabulary_sha256 != student_vocabulary_sha256:
+        raise ValueError("teacher and student ranked IDs must use the same vocabulary hash")
+
+    def validate_token_id(token_id: object, name: str) -> int:
+        if (
+            isinstance(token_id, bool)
+            or not isinstance(token_id, int)
+            or not 0 <= token_id < vocabulary_size
+        ):
+            raise ValueError(f"{name} must contain in-vocabulary non-negative integer IDs")
+        return token_id
+
+    teacher_top = validate_token_id(teacher_global_argmax_id, "teacher_global_argmax_id")
+    if isinstance(student_global_top_token_ids, (str, bytes)):
+        raise ValueError("student_global_top_token_ids must be a ranked integer sequence")
+    student_ranked = tuple(
+        validate_token_id(token_id, "student_global_top_token_ids")
+        for token_id in student_global_top_token_ids
+    )
+    if len(student_ranked) < k:
+        raise ValueError("student_global_top_token_ids must contain at least k IDs")
+    if len(student_ranked) != len(set(student_ranked)):
+        raise ValueError("student_global_top_token_ids must not contain duplicate IDs")
+    reflection = {
+        validate_token_id(token_id, "reflection_token_ids")
+        for token_id in reflection_token_ids
+    }
+    if not reflection:
+        raise ValueError("reflection_token_ids must not be empty")
+    return teacher_top in reflection and not set(student_ranked[:k]).intersection(reflection)

@@ -27,4 +27,11 @@ rvi-opd audit-prompts \
 
 Use `--repetition-threshold 0.8` and/or `--paced-zero-rescue` only for D4/D5 boundary experiments; both are disabled in the confirmatory core.
 
+Core/D5 `intervene` requests additionally require the adapter-computed
+`relay_phi_eligible`, `intervention_budget_available`, and
+`intervention_cooldown_available` flags. They are explicit audit inputs; high
+`s2` alone never authorizes a teacher bridge. The D4 non-Relay repetition
+bypass instead requires its frozen `alternative_direction_available` probe and
+an available intervention budget.
+
 The prompt manifest contains IDs and hashes, not prompt text. It catches physical exact duplicates after conservative Unicode/whitespace normalization; MinHash, equation signatures and semantic review remain mandatory for the full data audit.

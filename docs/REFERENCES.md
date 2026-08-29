@@ -1,14 +1,20 @@
 # Primary references and pinned upstreams
 
-All links below are papers, official project repositories, official model pages or official dataset/evaluation sources. Revisions verified on 2026-08-28 are recorded in [`upstreams.lock.json`](../upstreams.lock.json).
+All links below are papers, official project repositories, official model pages or official dataset/evaluation sources. The related-work and comparison cutoff is **2026-08-01**; work after that date is concurrent and is neither cited nor used for head-to-head claims. Revisions were re-verified on 2026-08-30 (a retrieval date, not a literature cutoff) and are recorded in [`upstreams.lock.json`](../upstreams.lock.json).
 
 ## Method papers
 
 - [Not All Disagreement Is Learnable: Token Teachability in On-Policy Distillation](https://arxiv.org/abs/2605.26844) and [official TA-OPD repository](https://github.com/wyy-code/TA-OPD).
 - [Trajectory-Refined Distillation](https://arxiv.org/abs/2606.08432) and [official TRD repository](https://github.com/louieworth/trd).
+- [SAGE-OPD: Selective Agent-Guided Intervention for Multi-Turn On-Policy Distillation](https://arxiv.org/abs/2606.19659). No compatible pinned implementation is claimed; use citation/clean-room status unless an adapter is separately frozen.
+- [DOPD: Dual On-Policy Distillation](https://arxiv.org/abs/2606.30626). Implementation status is audited separately from the mathematical comparison.
 - [Pass the Baton: Trajectory-Relayed On-Policy Distillation](https://arxiv.org/abs/2607.26057) and [official Relay-OPD repository](https://github.com/ZJU-REAL/Relay-OPD).
+- [DASH-OPD v1: Discrepancy-Aware Switching with Hysteresis](https://arxiv.org/abs/2607.29078). Only the version available by 2026-08-01 is in scope; later revisions are concurrent.
 - [TIP: Token Importance in On-Policy Distillation](https://arxiv.org/abs/2604.14084) and [authors' shared OPSD repository](https://github.com/HJSang/OPSD_OnPolicyDistillation).
 - [PACED: Distillation and On-Policy Self-Distillation at the Frontier of Student Competence](https://arxiv.org/abs/2603.11178) and the same [shared repository](https://github.com/HJSang/OPSD_OnPolicyDistillation).
+- [Demystifying On-Policy Distillation: Length Inflation and Stabilization Strategies (Luo et al.)](https://arxiv.org/abs/2604.08527). Used for repetition/length-degradation motivation, not as proof of the RvI mechanism.
+- [Speculative Knowledge Distillation: Bridging the Teacher–Student Gap Through Interleaved Sampling](https://arxiv.org/abs/2410.11325), [Google Research page](https://research.google/pubs/speculative-knowledge-distillation-bridging-the-teacher-student-gap-through-interleaved-sampling/) and [OpenReview record](https://openreview.net/forum?id=EgJhwYR2tB). The repository uses a clean-room adaptation unless an exact compatible upstream revision is frozen.
+- [AdaSwitch: Adaptive Switching Generation for Knowledge Distillation](https://arxiv.org/abs/2510.07842) and [OpenReview record](https://openreview.net/forum?id=vZyrTu4dfF).
 - [Fast and Effective On-Policy Distillation from Reasoning Prefixes](https://aclanthology.org/2026.findings-acl.1276/). No independent official implementation was located; Relay includes its own fixed-prefix reproduction scripts.
 - [Less is More: Early Stopping Rollout for On-Policy Distillation](https://arxiv.org/abs/2605.27028). Treat ESR as a separate paper but do not claim a separately reproduced official implementation without one.
 
@@ -24,7 +30,8 @@ All links below are papers, official project repositories, official model pages 
 
 - [Qwen/Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507).
 - [Qwen/Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B). Non-thinking is a chat-template setting, not a separate official checkpoint.
-- [Qwen/Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B), [Qwen/Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B) and [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B). Medical runs must freeze the hybrid model's thinking mode and template.
+- [Qwen/Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B). E2 uses the pinned post-trained student snapshot and records its `Qwen3-0.6B-Base` lineage; it is not relabelled as an Instruct checkpoint.
+- [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) is optional robustness only. The former Qwen3-32B/4B medical pair is legacy and is not part of the final matrix.
 
 ## Baseline naming rules
 

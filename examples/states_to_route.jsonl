@@ -1,4 +1,4 @@
 {"compatibility": 0.93, "divergence": 1.1, "p_hat": 0.75, "problem_id": "p1", "repetition_rate": 0.01, "s2": 0.001, "state_id": "absorbable", "token_index": 6, "trajectory_id": "t1"}
-{"compatibility": 0.08, "divergence": 1.4, "p_hat": 0.25, "problem_id": "p2", "repetition_rate": 0.03, "s2": 0.014, "state_id": "prefix-failed", "token_index": 9, "trajectory_id": "t2"}
+{"compatibility": 0.08, "divergence": 1.4, "p_hat": 0.25, "problem_id": "p2", "repetition_rate": 0.03, "s2": 0.014, "state_id": "prefix-failed", "token_index": 9, "trajectory_id": "t2", "relay_phi_eligible": true, "intervention_budget_available": true, "intervention_cooldown_available": true}
 {"compatibility": 0.52, "divergence": 0.08, "p_hat": 0.90, "problem_id": "p3", "repetition_rate": 0.02, "s2": 0.0005, "state_id": "discardable", "token_index": 3, "trajectory_id": "t3"}
-{"alternative_direction_available": true, "compatibility": 0.48, "divergence": 0.09, "p_hat": 0.00, "problem_id": "p4", "repetition_rate": 0.94, "s2": 0.0004, "state_id": "loop", "token_index": 20, "trajectory_id": "t4"}
+{"alternative_direction_available": true, "compatibility": 0.48, "divergence": 0.09, "p_hat": 0.00, "problem_id": "p4", "repetition_rate": 0.94, "s2": 0.0004, "state_id": "loop", "token_index": 20, "trajectory_id": "t4", "intervention_budget_available": true}
