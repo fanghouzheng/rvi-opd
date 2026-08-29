@@ -22,8 +22,10 @@ git clone https://github.com/fanghouzheng/rvi-opd.git
 cd rvi-opd
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e .
+python -m pip install -r requirements-bootstrap.txt
+python -m pip install -r requirements-dev.txt
+python -m pip install --no-deps --no-build-isolation -e .
+make env-check
 make validate
 make test
 make smoke
@@ -71,6 +73,11 @@ template、rubric manifest 等 SHA256 占位符；因此仓库刚 clone 下来�
 
 当前提交是研究协议与无 GPU 核心，不复制 TA-OPD/TIP/PACED 等上游代码。大模型训练应在锁定的 `verl`/Relay/TRD revision 上做 clean-room adapter，并先通过同一套 audit contracts。接入点和需要保存的 artifacts 见 [复现规范](docs/REPRODUCIBILITY.md)。
 
+环境不能混装：CPU 合同层使用 `requirements.txt`（运行时零第三方依赖）与
+`requirements-dev.txt`；确认性 GPU 实验只使用 `requirements-gpu-cu130.txt`
+指向的 Relay 锁定栈。独立 verl/TRD checkout 不得覆盖该环境中的 Relay fork。
+系统版本、安装顺序、校验命令和常见错误见 [环境与依赖](docs/ENVIRONMENT.zh-CN.md)。
+
 ## 目录
 
 ```text
@@ -80,6 +87,9 @@ src/rvi_opd/             dependency-free 信号、路由、预算、gate、统�
 tests/                   单元与 deterministic integration tests
 examples/                不含真实 benchmark 内容的 synthetic schema 示例
 .github/workflows/       CPU CI
+requirements*.txt        CPU/dev 与确认性 GPU 依赖入口
+environment*.yml         Conda/Mamba 基础环境
+environment-lock.json    两类环境的机器可读版本合同
 ```
 
 ## 重要边界
@@ -94,6 +104,7 @@ examples/                不含真实 benchmark 内容的 synthetic schema 示�
 ## 文档入口
 
 - [完整实验计划](docs/EXPERIMENT_PLAN.zh-CN.md)
+- [环境与依赖](docs/ENVIRONMENT.zh-CN.md)
 - [方法与实现规格](docs/METHOD_SPEC.md)
 - [HealthBench 标注协议](docs/HEALTHBENCH_PROTOCOL.zh-CN.md)
 - [复现与泄漏防护](docs/REPRODUCIBILITY.md)

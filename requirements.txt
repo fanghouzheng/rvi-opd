@@ -1,0 +1,6 @@
+# RvI-OPD CPU contract runtime dependencies.
+#
+# Intentionally empty: src/rvi_opd uses only the Python standard library.
+# Install the local package separately with:
+#   python -m pip install -r requirements-bootstrap.txt
+#   python -m pip install --no-deps --no-build-isolation -e .

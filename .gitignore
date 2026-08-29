@@ -6,6 +6,7 @@ dist/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.venv-gpu/
 .env
 .env.*
 !.env.example

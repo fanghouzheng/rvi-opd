@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "cpu": {
+    "role": "contract_validation_smoke_and_documentation",
+    "platforms": ["Linux", "macOS"],
+    "python_spec": ">=3.9,<3.13",
+    "ci_python_versions": ["3.9", "3.12"],
+    "runtime_requirements": "requirements.txt",
+    "third_party_runtime_packages": []
+  },
+  "bootstrap": {
+    "role": "cpu_build_and_installer_tools",
+    "requirements": "requirements-bootstrap.txt",
+    "packages": {
+      "pip": "26.0.1",
+      "setuptools": "80.10.2"
+    }
+  },
+  "dev": {
+    "extends": "cpu",
+    "bootstrap": "bootstrap",
+    "requirements": "requirements-dev.txt",
+    "packages": {
+      "exceptiongroup": "1.3.1",
+      "iniconfig": "2.1.0",
+      "packaging": "26.3",
+      "pluggy": "1.6.0",
+      "Pygments": "2.21.0",
+      "pytest": "8.4.2",
+      "ruff": "0.16.5",
+      "tomli": "2.4.1",
+      "typing_extensions": "4.16.0"
+    }
+  },
+  "gpu_relay_cu130": {
+    "role": "only_confirmatory_training_and_rollout_stack",
+    "platform": "Linux",
+    "architecture": "x86_64",
+    "validated_os": "Ubuntu 24.04",
+    "validated_hardware": "NVIDIA L20Z",
+    "python_exact": "3.12.13",
+    "cuda_runtime": "13.0",
+    "cuda_toolkit": "13.0.2",
+    "nvidia_driver": "host_managed_and_must_support_CUDA_13.0",
+    "requirements_entrypoint": "requirements-gpu-cu130.txt",
+    "installer": "scripts/create_gpu_env.sh",
+    "relay": {
+      "repository": "https://github.com/ZJU-REAL/Relay-OPD.git",
+      "commit": "eab21451f99e1a40fbb244f556de766d153c88f5",
+      "requirements_lock_path": "relay-opd/environment/requirements.lock.txt",
+      "requirements_lock_sha256": "693489b8ebb68350b9603fad07486c05e60fcd84aa2842305e19d2c6e26b5685",
+      "locked_distribution_count": 234
+    },
+    "key_packages": {
+      "datasets": "5.0.1",
+      "math-verify": "0.9.0",
+      "numpy": "1.26.4",
+      "opencv-python-headless": "4.13.0.92",
+      "pip": "26.1.2",
+      "ray": "2.56.1",
+      "setuptools": "80.10.2",
+      "torch": "2.11.0",
+      "transformers": "5.14.1",
+      "triton": "3.6.0",
+      "vllm": "0.21.0",
+      "wheel": "0.47.0"
+    },
+    "forbidden_mutations": [
+      "install_project_hf_extras",
+      "upgrade_torch_transformers_vllm_or_numpy_independently",
+      "install_standalone_verl_or_TRD_fork_into_this_environment"
+    ]
+  },
+  "standalone_verl": {
+    "role": "reference_and_porting_only_never_the_confirmatory_runtime",
+    "commit": "24f25b03aa4b54249a273655ebbcce06f484192b",
+    "reason_not_shared": "uses_an_incompatible_vllm_0.24_transformers_5.5.3_numpy_2_stack"
+  }
+}

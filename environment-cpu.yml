@@ -1,0 +1,13 @@
+name: rvi-opd-cpu
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - git
+
+# After activation, from the repository root:
+#   python -m pip install -r requirements-bootstrap.txt
+#   python -m pip install -r requirements-dev.txt
+#   python -m pip install --no-deps --no-build-isolation -e .
+#   make env-check

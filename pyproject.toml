@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools==80.10.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,13 +7,12 @@ name = "rvi-opd"
 version = "0.1.0"
 description = "Auditable experiment scaffold for Repair-vs-Intervene On-Policy Distillation"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.13"
 authors = [{name = "RvI-OPD contributors"}]
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10", "ruff>=0.16.5,<0.17"]
-hf = ["torch>=2.5", "transformers>=4.55", "datasets>=3.0"]
+dev = ["pytest==8.4.2", "ruff==0.16.5"]
 
 [project.scripts]
 rvi-opd = "rvi_opd.cli:main"

@@ -1,9 +1,12 @@
 PYTHON ?= python3
 
-.PHONY: lint test smoke validate
+.PHONY: env-check lint test smoke validate
+
+env-check:
+	$(PYTHON) scripts/check_environment.py --profile dev
 
 lint:
-	$(PYTHON) -m ruff check src tests
+	$(PYTHON) -m ruff check src tests scripts
 
 test:
 	PYTHONPATH=src $(PYTHON) -m unittest discover -s tests -v

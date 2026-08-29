@@ -1,0 +1,13 @@
+# Confirmatory Relay/RvI GPU environment dependency lock.
+#
+# Source: Relay-OPD@eab21451f99e1a40fbb244f556de766d153c88f5
+# Upstream lock SHA256:
+# 693489b8ebb68350b9603fad07486c05e60fcd84aa2842305e19d2c6e26b5685
+#
+# IMPORTANT: do not run a normal dependency-resolving `pip install -r` on this
+# file. The upstream environment deliberately installs this lock with
+# `--no-deps` because its validated NumPy/OpenCV pair conflicts at metadata
+# level. Use scripts/create_gpu_env.sh, which clones the immutable Relay commit,
+# verifies the lock hash, and delegates to its create_locked_env.sh installer.
+# This pins distribution versions, not wheel file hashes or a container digest.
+-r https://raw.githubusercontent.com/ZJU-REAL/Relay-OPD/eab21451f99e1a40fbb244f556de766d153c88f5/relay-opd/environment/requirements.lock.txt

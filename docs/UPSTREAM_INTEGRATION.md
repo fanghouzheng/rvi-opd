@@ -4,6 +4,8 @@
 
 Use the pinned Relay-OPD subproject as the primary training stack because it already contains the Relay rollout engine, locked environment and baseline scripts. Do not compare results produced independently on current verl, Slime/Megatron and the TRD fork without first eliminating stack-level differences.
 
+The executable dependency contract is centralized in [`ENVIRONMENT.zh-CN.md`](ENVIRONMENT.zh-CN.md), `environment-lock.json`, and the pinned Relay installer. The standalone verl commit in `upstreams.lock.json` is reference/porting-only: its vLLM 0.24 / Transformers 5.5.3 / NumPy 2 profile is incompatible with the confirmatory Relay vLLM 0.21 / Transformers 5.14.1 / NumPy 1.26 profile and must never be installed into the same environment.
+
 Clean-room port only the mathematical selectors/loss masks required for TA, TIP and PACED. Canonical TRD remains a separate upstream reproduction because its full-vocabulary FKL differs from Relay's top-128 adaptation.
 
 ## E2 model and environment compatibility

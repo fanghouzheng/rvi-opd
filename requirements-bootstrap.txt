@@ -1,0 +1,5 @@
+# Pinned CPU build/bootstrap tools. Install this file before the dev lock.
+# CPU keeps pip 26.0.1 because the matrix includes Python 3.9; the Relay GPU
+# lock uses pip 26.1.2, which requires a newer Python.
+pip==26.0.1
+setuptools==80.10.2

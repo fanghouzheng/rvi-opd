@@ -7,7 +7,11 @@
       "url": "https://github.com/ZJU-REAL/Relay-OPD.git",
       "commit": "eab21451f99e1a40fbb244f556de766d153c88f5",
       "license_note": "Apache-2.0 in the relay-opd subproject",
-      "recommended_base_stack": true
+      "recommended_base_stack": true,
+      "runtime_role": "only_confirmatory_training_and_rollout_stack",
+      "environment_lock_path": "relay-opd/environment/requirements.lock.txt",
+      "environment_lock_sha256": "693489b8ebb68350b9603fad07486c05e60fcd84aa2842305e19d2c6e26b5685",
+      "locked_distribution_count": 234
     },
     "trd": {
       "url": "https://github.com/louieworth/trd.git",
@@ -27,7 +31,9 @@
     "verl": {
       "url": "https://github.com/verl-project/verl.git",
       "commit": "24f25b03aa4b54249a273655ebbcce06f484192b",
-      "license_note": "Apache-2.0"
+      "license_note": "Apache-2.0",
+      "runtime_role": "reference_and_porting_only_never_confirmatory",
+      "incompatible_with_relay_environment": true
     },
     "simple_evals": {
       "url": "https://github.com/openai/simple-evals.git",
