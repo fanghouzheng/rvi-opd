@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "policy_id": "healthbench-first-v1",
+  "matrix_revision": "2026-08-30",
+  "branch": "healthbench-first",
+  "amendment_type": "prospective_execution_order_and_stop_rule",
+  "scientific_outcomes_seen_before_amendment": false,
+  "producer_target": "E2:healthbench_final",
+  "allowed_pre_gate_targets": [
+    "E2:C0",
+    "E2:W0",
+    "E2:resource_pilot",
+    "D1:medical",
+    "D2:medical",
+    "E2:core_train",
+    "E2:healthbench_final"
+  ],
+  "math_targets": [
+    "D1:math",
+    "D2:math",
+    "D0",
+    "D3",
+    "D4",
+    "D5",
+    "E1",
+    "A1-A8:math"
+  ],
+  "failure_status": "NOT_RUN_HEALTHBENCH_GATE",
+  "gate_result_schema": "rvi-healthbench-math-release-v1",
+  "config_bindings": {
+    "e2_config": "configs/e2_healthbench.json",
+    "math_configs": [
+      "configs/ablations.json",
+      "configs/d0_factorial.json",
+      "configs/d1_signal_calibration.json",
+      "configs/d2_paired_continuation.json",
+      "configs/d3_detached.json",
+      "configs/d4_degenerate_prefix.json",
+      "configs/d5_paced_rescue.json",
+      "configs/e1_math.json"
+    ]
+  },
+  "healthbench_core": {
+    "training_seeds": [13, 17, 23],
+    "trained_arms": [
+      "vanilla_opd",
+      "relay_opd",
+      "trd_canonical_full_vocab",
+      "repair_only",
+      "intervene_only",
+      "rvi_opd",
+      "a2_action_shuffled"
+    ],
+    "evaluation_sampling_seeds": {
+      "vanilla_opd": [13, 17, 23],
+      "relay_opd": [13, 17, 23],
+      "trd_canonical_full_vocab": [13, 17, 23],
+      "repair_only": [13, 17, 23],
+      "intervene_only": [13, 17, 23],
+      "rvi_opd": [13, 17, 23],
+      "a2_action_shuffled": [13, 17, 23],
+      "base": [13, 17, 23],
+      "teacher_upper_bound": [13]
+    },
+    "required_training_run_count": 21,
+    "required_evaluation_manifest_count": 25,
+    "full_prompt_count": 5000,
+    "hard_prompt_count": 1000,
+    "hard_reuses_full_completions": true,
+    "remaining_e2_rows_after_gate": [
+      "sft",
+      "fastopd_relay_fixed_prefix_reproduction",
+      "skd",
+      "ta_opd",
+      "tip_select"
+    ]
+  },
+  "required_true_flags": [
+    "c0_passed",
+    "w0_passed",
+    "grader_repeatability_passed",
+    "all_required_runs_complete",
+    "all_required_artifact_hashes_verified",
+    "settings_frozen_before_healthbench_outputs",
+    "math_configs_frozen_before_healthbench_outputs",
+    "healthbench_never_used_for_training_or_hyperparameter_selection",
+    "hard_reused_full_completions",
+    "all_failures_and_retries_retained"
+  ],
+  "decision_rule": {
+    "type": "intersection_union_all_required",
+    "material_margin": 0.01,
+    "equivalence_margin": 0.01,
+    "safety_noninferiority_margin": 0.01,
+    "base_comparator": "base",
+    "non_oracle_baselines": [
+      "vanilla_opd",
+      "relay_opd",
+      "trd_canonical_full_vocab"
+    ],
+    "single_action_baselines": ["repair_only", "intervene_only"],
+    "a2_comparator": "a2_action_shuffled",
+    "rubric_mixed_excluded": true,
+    "hard_is_secondary_only": true,
+    "decision_on_pass": "GO_MATH",
+    "decision_on_fail": "STOP_AFTER_HEALTHBENCH"
+  }
+}

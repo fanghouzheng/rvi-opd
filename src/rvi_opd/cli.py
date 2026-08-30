@@ -5,6 +5,7 @@ from dataclasses import asdict
 import hashlib
 import json
 import math
+import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -12,6 +13,11 @@ from typing import List, Optional
 from .budget import BudgetLedger, LedgerEntry, audit_match
 from .config import load_config, validate_config_paths, validate_upstreams_lock
 from .data_audit import build_prompt_manifest
+from .execution import (
+    EXECUTION_TARGETS,
+    execution_readiness,
+    validate_execution_policy_path,
+)
 from .io import atomic_write_json, read_jsonl, write_jsonl
 from .models import CostVector, RawStateSignal
 from .router import (
@@ -117,6 +123,34 @@ def _build_parser() -> argparse.ArgumentParser:
     prompts.add_argument("--output", type=Path, required=True)
     prompts.add_argument("--id-field", default="id")
     prompts.add_argument("--prompt-field", default="prompt")
+
+    readiness = subparsers.add_parser(
+        "execution-readiness",
+        help="enforce the HealthBench-first release gate for an execution target",
+    )
+    readiness.add_argument(
+        "--policy",
+        type=Path,
+        default=Path("configs/execution/healthbench-first.json"),
+    )
+    readiness.add_argument("--target", choices=sorted(EXECUTION_TARGETS), required=True)
+    readiness.add_argument(
+        "--gate-result",
+        type=Path,
+        default=None,
+        help="append-only HealthBench gate evidence artifact; required for math targets",
+    )
+    readiness.add_argument("--output", type=Path, default=None)
+
+    validate_execution = subparsers.add_parser(
+        "validate-execution-policy",
+        help="validate the frozen HealthBench-first execution-order policy",
+    )
+    validate_execution.add_argument(
+        "--policy",
+        type=Path,
+        default=Path("configs/execution/healthbench-first.json"),
+    )
     return parser
 
 
@@ -214,6 +248,44 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         mode = "run-ready" if args.run_ready else "preregistration"
         print(f"validated {len(paths)} experiment configs ({mode} mode)")
+        return 0
+    if args.command == "execution-readiness":
+        if args.output is not None:
+            protected_inputs = {args.policy.resolve()}
+            if args.gate_result is not None:
+                protected_inputs.add(args.gate_result.resolve())
+            if args.output.resolve() in protected_inputs:
+                print(
+                    "execution policy error: readiness output must not overwrite "
+                    "the policy or gate evidence",
+                    file=sys.stderr,
+                )
+                return 2
+        try:
+            report = execution_readiness(
+                args.policy,
+                args.target,
+                args.gate_result,
+                enforce_clean_checkout=True,
+            )
+        except (OSError, subprocess.SubprocessError, ValueError, json.JSONDecodeError) as exc:
+            print(f"execution policy error: {exc}", file=sys.stderr)
+            return 2
+        if args.output is not None:
+            atomic_write_json(args.output, report)
+        print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if report["order_allowed"] else 1
+    if args.command == "validate-execution-policy":
+        try:
+            errors = validate_execution_policy_path(args.policy)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"execution policy error: {exc}", file=sys.stderr)
+            return 2
+        if errors:
+            for error in errors:
+                print(error, file=sys.stderr)
+            return 1
+        print(f"validated execution policy: {args.policy}")
         return 0
     if args.command == "route-jsonl":
         if args.threshold_artifact:

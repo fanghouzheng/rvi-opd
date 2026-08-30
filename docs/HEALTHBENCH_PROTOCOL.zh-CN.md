@@ -77,3 +77,11 @@ adjudication_label, adjudicator_id, annotation_timestamp
 - 报告实际 grader calls（每个 rubric item、主重复和 audit 重复分别计数）、失败/重试数、API 成本和缓存命中率；预算达到上限时停止新增 run 并标记 `NOT_RUN_BUDGET_CAP`。
 
 核心预测是 repair 与 intervene 都可能提高 INSERTABLE，但 RvI 相对 repair 对 GLOBAL_REVISION 的增益更大。若该 interaction 不成立，仍可报告官方总分，但不能用医疗域支持“cosmetic correction”机制。无论结果如何，本实验只评估 HealthBench external-domain behavior，不证明临床有效性、患者安全或可部署性。
+
+## 7. `healthbench-first` 的一次性资源放行
+
+该分支在任何正式结果可见前，把 HealthBench 核心实验登记为数学实验的资源放行门。核心训练矩阵是 Vanilla OPD、Relay OPD、canonical full-vocabulary TRD、repair-only、intervene-only、RvI 和 A2 action-shuffled 各 seeds `{13,17,23}`，共 21 个训练 run；加上 Base/Teacher 后，共 25 个冻结评测 manifest。全部 run、失败和重试工件完成后，才允许对 Full 做一次正式分析，Hard 必须复用 Full completions。
+
+门首先要求 RvI 在 HealthBench Full 官方总分上相对 frozen Base 的配对差值点估计至少 `+0.01`，且 seed→prompt 两层 paired bootstrap 95% CI 下界大于 0；即使胜过所有训练 baseline，该必要门失败也不得启动 Math。除此之外，RvI 还必须同时优于三类 non-oracle baseline、两个单动作 baseline 和 A2，并满足预注册 rubric mechanism、leave-one-seed-out 稳定性及负权重 violation 的 0.01 非劣界；任一项失败都为 `STOP_AFTER_HEALTHBENCH`。Hard 仍只作 key secondary，不能翻转 Full 的 NO-GO。详细数值条件、哈希合同与 CLI 见 [`HEALTHBENCH_FIRST_PLAN.zh-CN.md`](HEALTHBENCH_FIRST_PLAN.zh-CN.md)。
+
+这个门只决定是否投入 Math 算力，绝不把 HealthBench 变成模型选择集。数学阈值、训练配置、seed、baseline 和预算必须在 HealthBench 输出可见前整体冻结并绑定 hash；医疗域 D1 阈值也不能复用于数学域。STOP 时所有数学目标统一标记 `NOT_RUN_HEALTHBENCH_GATE`，不得通过重做 Hard、增加 seed 或事后补 E2 行翻转。

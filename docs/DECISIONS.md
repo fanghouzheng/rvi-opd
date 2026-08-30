@@ -1,5 +1,13 @@
 # Design decisions and resolved ambiguities
 
+## HealthBench-first is a prospective execution amendment
+
+The `healthbench-first` branch changes resource order, not the scientific matrix: the amendment was recorded with `scientific_outcomes_seen_before_amendment=false`, keeps the 2026-08-01 citation cutoff, and freezes the E2 config plus the complete math-config bundle before final HealthBench outputs are visible. Its core evidence is seven trained E2 arms at three seeds (21 runs), followed by one Full evaluation pass with Hard indexed from the same completions.
+
+Math is released only if every condition in the immutable `healthbench-first-v1` intersection-union gate passes. As an independent necessary condition, RvI's paired HealthBench Full official-score delta against frozen Base must have estimate at least `+0.01` and a seed→prompt bootstrap lower 95% confidence bound above zero; beating every trained baseline cannot compensate for failing this check. The gate also includes RvI comparisons against the three non-oracle baselines, both single-action baselines and A2, the rubric mechanism checks, leave-one-seed-out stability and the negative-violation safety veto. A pass produces `GO_MATH`; any failure produces `STOP_AFTER_HEALTHBENCH` and all math targets are recorded as `NOT_RUN_HEALTHBENCH_GATE`. Optional E2 rows, a separate Hard sample or extra seeds cannot rescue a STOP.
+
+This design deliberately treats HealthBench as a binary resource signal, not a tuning set. Math thresholds, hyperparameters, data splits, seeds, baselines, budgets and ablations cannot depend on its observed outcomes, and math still runs its own domain-specific D1/D2 after release. The full operational contract is in [`HEALTHBENCH_FIRST_PLAN.zh-CN.md`](HEALTHBENCH_FIRST_PLAN.zh-CN.md).
+
 ## D0 is a 2×2 mechanism test with an s2 subgroup readout
 
 The final matrix reports the two prespecified signal strata (`D^L-top` and `D^I-top`) crossed with repair/intervene. Only action is randomized within the blocked signal strata; signal type is an eligibility/stratification descriptor, not an assigned treatment. The high/low s2 bands are frozen, prespecified analysis subgroups (with a middle band and ties excluded before action assignment); s2 is not a third randomized factor. The confirmatory estimand is therefore action-effect heterogeneity, `Delta2`, across signal strata. We report the high-s2 and low-s2 action contrasts, with the subgroup family and its multiplicity rule made explicit, but do not promote a three-way `Delta3` claim from this design.

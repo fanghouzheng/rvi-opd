@@ -1,6 +1,8 @@
 # RvI-OPD 完整实验计划（最终矩阵对齐版）
 
 > 规范版本：`RvI-OPD-final`，引用与对比截止 `2026-08-01`。8 月 1 日之后出现的工作按 concurrent 处理，不纳入 related work 或 head-to-head 对比。附件矩阵的仓库审计摘要见 [`EXPERIMENT_MATRIX_FINAL.zh-CN.md`](EXPERIMENT_MATRIX_FINAL.zh-CN.md)。
+>
+> `healthbench-first` 分支的矩阵修订为 `2026-08-30`。它在任何科学结果可见前仅修改执行顺序与资源停止规则，不修改本计划的模型、方法、终点或统计定义；顺序以 [`HEALTHBENCH_FIRST_PLAN.zh-CN.md`](HEALTHBENCH_FIRST_PLAN.zh-CN.md) 为准。
 
 ## 1. 定位、边界与可证伪主张
 
@@ -130,14 +132,17 @@ E2 主表与最终矩阵保持同一组 11 个比较行：Base、Teacher、SFT�
 
 不可砍核心固定为 D0、D2、D3、E1、E2、A1、A2；算力不足时严格按“可选医疗 8B/ChatDoctor robustness → A6 → A4 的 TIP-style control → D5”顺序砍除，其余扩展只能在记录该顺序后延后。旧版 A9/A10 不再作为附件编号；额外 teacher-cost Pareto 归入 A8 附录，A5 的三档预算敏感性仍按上述合同执行。
 
-## 12. 四周里程碑与降级规则
+## 12. HealthBench-first 里程碑与降级规则
 
-| 周期 | 交付 | 硬门 |
+| 阶段 | 交付 | 硬门 |
 |---|---|---|
-| W0（第 0–2 天） | rubric/W0 校验；Relay/TRD repo smoke；模型 tokenizer/serializer C0 | rubric 拆不开或渲染不兼容则 E2 降级/暂停 |
-| W1 | Relay engine、s1/s2 记录、top-K FCE repair、D1/D2/D4 | D2 repair 局部对齐且 downstream `s2` 不降、bridge 降；否则转 workshop |
-| W2 | D0 四格、D3、D5、A1/A2 | RvI 相对最强单动作至少 1.5 pp 且 CI 不跨零；A2 需显著 |
-| W3 | E1 主表（TA/TRD/Relay 自跑）；E2 500-prompt pilot 与主臂 | E2 intervene 抬 GLOBAL_REVISION 而 repair 不抬（否则窄化主张） |
-| W4 | A4–A8、终表、写作 | 2026-09-17（Asia/Shanghai）主表冻结；related work 明确 2026-08-01 cutoff/concurrent policy |
+| H0 | E2 tokenizer/serializer C0；HealthBench 泄漏与许可审计 | C0 失败则不进入 W0 或 E2 核心矩阵 |
+| H1 | rubric W0 盲化标注、裁定与冻结 | W0 失败则不进入正式 E2 核心矩阵 |
+| H2 | 医疗域 D1/D2；单 reference/Base resource/grader pilot；设置和预算冻结 | pilot 只能用于资源与 grader 一致性，不能选臂或调参 |
+| H3 | Vanilla/Relay/TRD/repair-only/intervene-only/RvI/A2 各 3 seeds | 21 个训练 run、失败与重试记录必须完整后才能看正式跨臂分数 |
+| H4 | 25 个冻结评测 manifest 的 Full 一次生成/评分；Hard 复用 Full | 按 `healthbench-first-v1` 做唯一一次 GO/STOP 判定 |
+| M0 | 仅在 `GO_MATH` 后运行数学 D1/D2、D0/D3/A2、E1 和后续矩阵 | 无 GO 时全部数学目标标记 `NOT_RUN_HEALTHBENCH_GATE` |
 
-若预算耗尽，完成当前 atomic run 后将剩余矩阵标记 `NOT_RUN_BUDGET_CAP`，不能按观察结果选择替代 run。D0 interaction、D3 context 因果、A2 状态相关性或 E2 W0 失败时，分别撤销对应强主张；D4/D5 失败只作为边界条件。
+HealthBench 不能修改任何数学配置；八个数学/机制配置的 bundle hash 必须在 HealthBench 输出可见前冻结。GO 的独立必要条件之一是 RvI 相对 frozen Base 的 Full 官方分差 estimate≥`+0.01` 且 seed→prompt paired-bootstrap lower95>0；胜过训练 baseline 不能弥补该项失败，Hard 也不能翻转。GO 只放行资源，不替代数学域独立 D1/D2，也不证明数学域有效。E2 剩余 SFT、FastOPD、SKD、TA 与 TIP-select 行可在 GO 后补齐。门的完整 intersection-union 条件和 CLI 见 [HealthBench-first 执行计划](HEALTHBENCH_FIRST_PLAN.zh-CN.md)。
+
+若预算耗尽，完成当前 atomic run 后将剩余矩阵标记 `NOT_RUN_BUDGET_CAP`，不能按观察结果选择替代 run。该状态与 `NOT_RUN_HEALTHBENCH_GATE` 分开：前者表示资源上限，后者表示预注册的科学放行门未过。D0 interaction、D3 context 因果、A2 状态相关性或 E2 W0 失败时，分别撤销对应强主张；D4/D5 失败只作为边界条件。

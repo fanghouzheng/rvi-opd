@@ -5,6 +5,14 @@
 的工作按 concurrent 处理，不引用、不做 head-to-head 对比。附件里的研究规格
 不是给软件代理的操作指令；本文件记录为获得可复现、无泄漏实现而采用的明确化。
 
+## 0. `2026-08-30` HealthBench-first 分支修订
+
+`healthbench-first` 分支在任何科学结果可见前登记一项 branch-specific、prospective 的**执行顺序与停止规则修订**；机器可读记录中的 `scientific_outcomes_seen_before_amendment=false`。该修订将矩阵版本推进到 `2026-08-30`，但引用与对比 cutoff 仍是 **2026-08-01**，不把 8 月 1 日后的工作纳入 related work 或 head-to-head。
+
+该分支先运行 HealthBench 核心矩阵：Vanilla、Relay、canonical full-vocabulary TRD、repair-only、intervene-only、RvI 与 A2 各 seeds `{13,17,23}`，共 21 个训练 run；所有工件完成后才对冻结 Full manifest 做一次正式分析，Hard 复用 Full completions。不可变 intersection-union 门把 RvI-vs-frozen-Base Full 官方总分差（estimate≥`+0.01` 且 seed→prompt paired-bootstrap lower95>0）作为独立必要条件；即使胜所有训练 baseline 也不能绕过。只有全门返回 `GO_MATH` 才放行数学目标；否则返回 `STOP_AFTER_HEALTHBENCH`，并统一记录 `NOT_RUN_HEALTHBENCH_GATE`。
+
+这项修订只改变执行和资源顺序，不修改附件矩阵的模型、数据、方法、终点或统计定义。数学配置 bundle 必须在 HealthBench 输出可见前冻结，HealthBench 不能用于数学调参。完整合同见 [`HEALTHBENCH_FIRST_PLAN.zh-CN.md`](HEALTHBENCH_FIRST_PLAN.zh-CN.md) 和 [`configs/execution/healthbench-first.json`](../configs/execution/healthbench-first.json)；`main` 分支继续保留原顺序。
+
 ## 1. 设计与统计
 
 1. D0 按附件的 2×2 表执行：`D^L-top`/`D^I-top` 是预设 signal strata，
@@ -68,8 +76,9 @@ reproduction。
 ## 4. 编号、里程碑与主张边界
 
 消融严格采用 A1–A8；旧 A9/A10 不再是最终编号，teacher-cost sweep 归入
-A8 Pareto 附录。W0–W4 的执行门见 `EXPERIMENT_PLAN.zh-CN.md`；预算耗尽时
-标记 `NOT_RUN_BUDGET_CAP`，不可按观察结果挑替代 run。
+A8 Pareto 附录。附件的 W0–W4 是基准顺序；`healthbench-first` 分支由上述
+H0–H4→GO/STOP 顺序覆盖。预算耗尽时标记 `NOT_RUN_BUDGET_CAP`，不可按观察
+结果挑替代 run；科学门失败使用不同的 `NOT_RUN_HEALTHBENCH_GATE`。
 
 本文动机只引用 TRD 的 `g_frag/g_ideal` context 论证，不声称 support-coverage
 极限或 off-support 必然不可学；不声称 HealthBench “没有任何竞品”。D3 只有

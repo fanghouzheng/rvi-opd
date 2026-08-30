@@ -1,6 +1,6 @@
 {
   "id": "D1",
-  "matrix_revision": "2026-08-01",
+  "matrix_revision": "2026-08-30",
   "citation_cutoff": "2026-08-01",
   "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
   "question": "Are disagreement eligibility (s1) and prefix damage (s2) distinct, stable signals that predict different action benefits?",

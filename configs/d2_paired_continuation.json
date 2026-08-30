@@ -1,6 +1,6 @@
 {
   "id": "D2",
-  "matrix_revision": "2026-08-01",
+  "matrix_revision": "2026-08-30",
   "citation_cutoff": "2026-08-01",
   "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
   "question": "Can local repair align the marked distribution without producing the downstream recovery that a changed context produces?",

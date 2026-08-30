@@ -16,3 +16,4 @@ smoke:
 
 validate:
 	PYTHONPATH=src $(PYTHON) -m rvi_opd validate-config --config-dir configs
+	PYTHONPATH=src $(PYTHON) -m rvi_opd validate-execution-policy

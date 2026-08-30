@@ -1,6 +1,6 @@
 {
   "id": "A1-A8",
-  "matrix_revision": "2026-08-01",
+  "matrix_revision": "2026-08-30",
   "citation_cutoff": "2026-08-01",
   "concurrent_policy": "post_cutoff_treat_as_concurrent_do_not_cite_or_compare",
   "question": "Which signal, action, gate, loss, trigger, and budget choices are necessary for RvI-OPD?",

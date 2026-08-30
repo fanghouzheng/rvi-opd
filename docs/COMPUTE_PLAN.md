@@ -2,17 +2,19 @@
 
 ## Gate expensive work with evidence
 
-Do not launch the full seed matrix first. Execute in resource gates:
+On the `healthbench-first` branch, do not launch any mathematical run first. Execute in the following resource gates; the machine-readable authority is `configs/execution/healthbench-first.json`:
 
 | Gate | Runs | Purpose | Stop condition |
 |---|---:|---|---|
-| C0 | CPU CI + one tiny frozen-logit GPU fixture | software and distributed compatibility | any audit failure |
-| C1 | D1 + D2 pilot | calibrate thresholds, H, gate null and variance | W1 fails |
-| C2 | D0/D3/A2 at 3 seeds | identify action-state interaction and context cause | H1/H3/H4 fail |
-| C3 | E1 core arms | external mathematical behavior | no gain over preregistered Relay comparator |
-| C4 | remaining E1 baselines/ablations | full paper matrix | only after C3 |
-| C5 | E2 W0 + 4B→0.6B core comparison (the full final matrix still includes all 11 named rows) | external-domain medical-question behavior | W0 or core interaction fails |
-| C6 | E2 robustness and any deferred D4/D5 reruns | extensions after the W1/W2 protocol milestones | optional only as a resource gate; the final matrix still records D4 in W1 and D5 in W2 |
+| H0 | CPU CI and E2 C0 | software/model compatibility and HealthBench leakage isolation | any C0 audit failure |
+| H1 | W0 blinded rubric annotation/adjudication | freeze the output-independent rubric manifest | any W0 gate failure |
+| H2 | one reference/Base resource pilot + medical D1/D2 | freeze resource, grader, threshold and manipulation-check contracts | any preregistered prerequisite failure |
+| H3 | 7 E2 core trained arms × 3 seeds | acquire the complete HealthBench-first mechanism matrix without score peeking | incomplete run/hash/failure ledger |
+| H4 | 25 frozen evaluation manifests on Full; Hard indexed from Full | one final confirmatory look and GO/STOP calculation | any gate check fails → `STOP_AFTER_HEALTHBENCH` |
+| M0 | math D1/D2, D0/D3/A2, E1 and math ablations | mathematical-domain evidence | forbidden unless H4 returns `GO_MATH` |
+| M1 | remaining E2 rows and optional robustness | complete/extend the medical table | only after H4; optional rows never rescue a failed gate |
+
+H4 has an independent frozen-Base floor: on HealthBench Full official score, the paired RvI-minus-Base estimate must be at least `+0.01` and its seed→prompt bootstrap lower 95% bound must exceed zero. Beating all trained baselines does not release math if this floor fails; Hard remains secondary.
 
 ## Run counts
 
@@ -23,9 +25,9 @@ The full E1 plan is intentionally expensive:
 - six secondary rows × at least three seeds = 18+ runs;
 - D0/D2 probes and budget sweeps are additional.
 
-These are training-run counts, not automatic reruns. If a C2 checkpoint has the identical resolved config, data manifest and seed required by E1, carry its immutable checkpoint/artifacts forward and count it once; a changed manifest or hyperparameter is a new named run. Evaluation-only Base/Teacher rows still incur generation/evaluation cost and are listed separately from training counts.
+These are training-run counts, not automatic reruns. If a mechanism checkpoint has the identical resolved config, data manifest and seed required by E1, carry its immutable checkpoint/artifacts forward and count it once; a changed manifest or hyperparameter is a new named run. Evaluation-only Base/Teacher rows still incur generation/evaluation cost and are listed separately from training counts.
 
-E2 should not mirror the whole matrix before the W0 annotation freeze, the subsequent 500-prompt reference/Base resource pilot and the 4B→0.6B core comparison pass. Stage C5 starts with evaluation of the locked `Qwen/Qwen3-0.6B` student plus Vanilla, Relay, RvI and A2 at three training seeds (12 training runs); this is a resource gate, not a change to the final 11-row matrix. Once it passes, add the remaining SFT, FastOPD, SKD, TA, TIP-select and TRD rows (with Teacher evaluation-only). The optional 8B student and 50:50 ChatDoctor mixture are robustness-only. Keep a machine-readable run registry so failed and replacement runs cannot disappear.
+E2 should not mirror the whole matrix before the W0 annotation freeze and the subsequent 500-prompt reference/Base resource pilot. Stage H3 contains exactly Vanilla, Relay, canonical full-vocabulary TRD, repair-only, intervene-only, RvI and A2 at seeds `{13,17,23}`: **21 training runs**. H4 contains 25 evaluation manifests: those seven arms and Base at three sampling seeds, plus Teacher upper bound at seed 13. Only after a GO may the remaining SFT, FastOPD, SKD, TA and TIP-select rows be added. The optional 8B student and 50:50 ChatDoctor mixture are robustness-only. Keep a machine-readable run registry so failed and replacement runs cannot disappear.
 
 ## Locked medical model and prompt contract
 
@@ -86,9 +88,9 @@ student_gpu_h = (rollout_tokens / rollout_tok_s
 
 Prefer an empirical end-to-end regression per arm when batching/parallel services make those terms non-additive. `teacher_forward_calls` is diagnostic only: dynamic batches make a call neither a fixed token count nor a fixed FLOP unit. Use p50 for capacity planning and p90 for reservation buffers. Publish predicted versus realized cost per arm; if the error is large, update only the compute plan, not scientific thresholds.
 
-Before C1, freeze `compute_budget.json` with per-gate and total hard caps for teacher GPU-hours, student GPU-hours, HealthBench grader calls/cost, human annotation/adjudication hours, storage and wall-clock, plus the pilot snapshot and equation used. No gate starts without a cap. When a cap is reached, finish only the current atomic run, mark the remaining matrix `NOT_RUN_BUDGET_CAP`, and report the incomplete matrix; never choose replacements using observed scientific outcomes. Mechanism tables may claim ≤1% matching only on target/scored positions, supervised tokens and optimizer steps. No table may claim strict compute matching unless measured GPU-seconds are themselves controlled by design.
+Before H1, freeze hard caps for annotation/adjudication and the H2 resource pilot. Immediately after that output-independent pilot and before H3, freeze `compute_budget.json` with per-gate and total caps for teacher GPU-hours, student GPU-hours, HealthBench grader calls/cost, human hours, storage and wall-clock, plus the pilot snapshot and equation used. No gate starts without its cap. When a cap is reached, finish only the current atomic run, mark the remaining matrix `NOT_RUN_BUDGET_CAP`, and report the incomplete matrix; never choose replacements using observed scientific outcomes. Mechanism tables may claim ≤1% matching only on target/scored positions, supervised tokens and optimizer steps. No table may claim strict compute matching unless measured GPU-seconds are themselves controlled by design.
 
-If resources force a staged order, preserve the protocol milestones: D4 is a W1 boundary experiment and D5 is a W2 boundary experiment even when their expensive reruns are deferred to C6. The protected, non-cuttable core is D0, D2, D3, E1, E2, A1 and A2. Apply the attachment's cut-first order exactly: optional medical 8B/ChatDoctor robustness, then A6, then the A4 TIP-style control, then D5. Other A4–A8 extensions may be deferred only after recording the protected core and this ordering. This is an execution deferral, not permission to change hypotheses after observing scores.
+After a GO, preserve the protected mathematical core: D0, D2, D3, E1, A1 and A2. Apply the attachment's cut-first order exactly: optional medical 8B/ChatDoctor robustness, then A6, then the A4 TIP-style control, then D5. Other A4–A8 extensions may be deferred only after recording the protected core and this ordering. This is an execution deferral, not permission to change hypotheses after observing scores. A STOP uses the distinct status `NOT_RUN_HEALTHBENCH_GATE` for every mathematical target; it is not a budget cut and cannot be reversed by optional E2 rows.
 
 ## Storage
 

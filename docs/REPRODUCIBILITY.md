@@ -50,6 +50,8 @@ Foundation-model pretraining contamination cannot be removed; disclose it. All t
 - Run final Full generation once per preregistered seed manifest (5,000 prompts); derive Hard by indexing those same completions by prompt ID, not by a second sampling pass.
 - Any rerun caused by infrastructure failure keeps the same seed and is recorded as a failed/replaced run.
 
+On the `healthbench-first` branch, the eight math/mechanism configs are frozen before any final HealthBench output is visible and bound as one ordered `math_config_bundle_sha256`. HealthBench has one preregistered Full look and produces an append-only gate evidence artifact; it may not select a math threshold, hyperparameter, seed, baseline or ablation. One necessary gate is the paired RvI-minus-frozen-Base Full official-score delta: estimate at least `+0.01` and seed→prompt bootstrap lower 95% bound above zero. Only a recomputed `GO_MATH` for this and every other check, under the exact policy/code/E2-config/math-bundle hashes, releases math. A STOP records every math target as `NOT_RUN_HEALTHBENCH_GATE`.
+
 ## Run artifact contract
 
 ```text
@@ -72,9 +74,15 @@ runs/<run_id>/
   completion_manifest.jsonl
   healthbench_index_manifest.json
   _SUCCESS
+
+runs/gates/
+  healthbench-first.json
+  math-release.json
 ```
 
 Large trajectories/checkpoints and HealthBench prompt/completion/grader payloads should live in controlled object storage; Git stores schemas, small synthetic fixtures and content hashes only. `completion_manifest.jsonl` and `healthbench_index_manifest.json` contain metadata/IDs/hashes, not benchmark content. Write artifacts atomically, and create `_SUCCESS` only after all hashes and invariants pass.
+
+`runs/gates/healthbench-first.json` is append-only evidence, not a hand-authored decision. It binds the execution-policy SHA256, 40-hex code revision, E2-config SHA256, ordered math-config bundle SHA256, all 21 training run/checkpoint hashes and all 25 completion/grader manifest hashes. The evaluator recomputes GO/STOP in a clean checkout and writes `math-release.json`; every released math run records the source gate evidence SHA256. Changing any bound config or code invalidates the old release. As elsewhere under `runs/`, gate storage contains hashes and aggregate statistics only—never HealthBench content.
 
 `run_id` combines git SHA, resolved-config hash and seed. `state_id` combines problem ID, rollout seed, token index and tokenizer hash.
 

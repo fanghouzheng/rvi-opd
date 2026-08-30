@@ -4,6 +4,8 @@ Repair-vs-Intervene On-Policy Distillation 的可审计实验仓库。
 
 本仓库把“应修当前位置，还是应改变后续状态”写成一组可证伪的实验合同。它包含完整预注册配置、纯 CPU 信号/路由/预算/统计核心、确定性 smoke test 和 GPU 训练接入规范；**目前没有真实训练结果，synthetic smoke 只证明软件合同成立，不能作为论文证据。**
 
+> `healthbench-first` 分支采用前瞻性资源放行：先完成 HealthBench 核心矩阵并做一次性 GO/STOP 判定，只有 `GO_MATH` 才运行数学矩阵。完整规则见 [HealthBench-first 执行计划](docs/HEALTHBENCH_FIRST_PLAN.zh-CN.md)；`main` 的原执行顺序不受此分支修订影响。
+
 ## 已实现
 
 - TA-OPD 口径的 top-K 并集与 `KL(T||S)`；batch q05/q95 分解保留为诊断，生产路由使用 D1 冻结的 global raw-`D/C` anchors。
@@ -18,7 +20,7 @@ Repair-vs-Intervene On-Policy Distillation 的可审计实验仓库。
 ## 快速开始
 
 ```bash
-git clone https://github.com/fanghouzheng/rvi-opd.git
+git clone --branch healthbench-first https://github.com/fanghouzheng/rvi-opd.git
 cd rvi-opd
 python3 -m venv .venv
 source .venv/bin/activate
@@ -41,18 +43,20 @@ template、rubric manifest 等 SHA256 占位符；因此仓库刚 clone 下来�
 ## 科学执行顺序
 
 ```text
-数据/许可证/泄漏审计
+HealthBench C0/W0、数据/许可证/泄漏审计
         ↓
- D1 信号定标并冻结阈值
+医疗域 D1/D2 + 单 reference/Base resource pilot
         ↓
- D2 paired continuation（W1）
-        ↓ 仅当 W1 通过
- D0 2×2（s2 高/低预设子群）+ D3 detached + A2 shuffled
+7 个 E2 核心臂 × 3 seeds（21 个训练 run）
         ↓
- D4/D5 边界实验
+HealthBench Full 一次正式评测；Hard 复用 Full completion
         ↓
- E1 数学主表 → E2 医疗主表
+一次性 GO/STOP 门
+        ↓ 仅当 GO_MATH
+数学域 D1/D2 → D0/D3/A2 → E1 与其余预注册矩阵
 ```
+
+数学作业提交前必须运行 `rvi-opd execution-readiness --target E1 --gate-result <append-only-gate.json>`；其中 RvI 相对 frozen Base 的 HealthBench Full 官方分差必须 estimate≥`+0.01` 且 paired-bootstrap lower95>0，胜训练 baseline 不能替代该门。STOP 时所有数学行标记为 `NOT_RUN_HEALTHBENCH_GATE`。该命令只审计执行顺序，不能替代 GPU adapter/C0、`make env-check` 或 `validate-config --run-ready`。HealthBench 只用于冻结的放行判断，不能用于调整数学配置。
 
 最关键的四个 confirmatory hypothesis 是：
 
@@ -103,6 +107,7 @@ environment-lock.json    两类环境的机器可读版本合同
 
 ## 文档入口
 
+- [HealthBench-first 执行与 Math 放行计划](docs/HEALTHBENCH_FIRST_PLAN.zh-CN.md)
 - [完整实验计划](docs/EXPERIMENT_PLAN.zh-CN.md)
 - [环境与依赖](docs/ENVIRONMENT.zh-CN.md)
 - [方法与实现规格](docs/METHOD_SPEC.md)

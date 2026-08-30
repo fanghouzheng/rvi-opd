@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr
 from pathlib import Path
+from unittest import mock
 
 from rvi_opd.cli import _ledger, _raw_records, main
 
@@ -111,6 +112,78 @@ class CliTests(unittest.TestCase):
             )
         self.assertEqual(status, 1)
         self.assertEqual(stderr.getvalue().count("is not run-ready"), 7)
+
+    def test_healthbench_first_cli_blocks_math_before_gate(self) -> None:
+        policy = self.repo / "configs/execution/healthbench-first.json"
+        with mock.patch("rvi_opd.execution._assert_clean_checkout"):
+            self.assertEqual(
+                main(
+                    [
+                        "execution-readiness",
+                        "--policy",
+                        str(policy),
+                        "--target",
+                        "D1:medical",
+                    ]
+                ),
+                0,
+            )
+            self.assertEqual(
+                main(
+                    [
+                        "execution-readiness",
+                        "--policy",
+                        str(policy),
+                        "--target",
+                        "E1",
+                    ]
+                ),
+                1,
+            )
+
+    def test_healthbench_first_cli_rejects_dirty_pre_gate_checkout(self) -> None:
+        policy = self.repo / "configs/execution/healthbench-first.json"
+        stderr = io.StringIO()
+        with mock.patch(
+            "rvi_opd.execution._assert_clean_checkout",
+            side_effect=ValueError("dirty checkout"),
+        ), redirect_stderr(stderr):
+            status = main(
+                [
+                    "execution-readiness",
+                    "--policy",
+                    str(policy),
+                    "--target",
+                    "D1:medical",
+                ]
+            )
+        self.assertEqual(status, 2)
+        self.assertIn("dirty checkout", stderr.getvalue())
+
+    def test_healthbench_first_cli_does_not_overwrite_policy(self) -> None:
+        policy = self.repo / "configs/execution/healthbench-first.json"
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            status = main(
+                [
+                    "execution-readiness",
+                    "--policy",
+                    str(policy),
+                    "--target",
+                    "D1:medical",
+                    "--output",
+                    str(policy),
+                ]
+            )
+        self.assertEqual(status, 2)
+        self.assertIn("must not overwrite", stderr.getvalue())
+
+    def test_validate_execution_policy_cli(self) -> None:
+        policy = self.repo / "configs/execution/healthbench-first.json"
+        self.assertEqual(
+            main(["validate-execution-policy", "--policy", str(policy)]),
+            0,
+        )
 
     def test_route_replay_is_independent_of_batch_id_and_peers(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
